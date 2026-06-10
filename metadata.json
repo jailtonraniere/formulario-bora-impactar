@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Bora Impactar — Atualização Cadastral",
+  "description": "Portabilidade e atualização de dados cadastrais das organizações sociais do Recife parceiras do Bora Impactar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
