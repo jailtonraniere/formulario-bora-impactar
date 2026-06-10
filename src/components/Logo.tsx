@@ -1,9 +1,5 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React from 'react';
+import logoImg from '../assets/images/bora_impactar_logo_1780867765790.png';
 
 interface LogoProps {
   className?: string;
@@ -11,45 +7,23 @@ interface LogoProps {
 }
 
 export const BoraImpactarLogo: React.FC<LogoProps> = ({ className = '', size = 'md' }) => {
-  const sizes = {
-    sm: {
-      bora: 'text-[14px]',
-      impacta: 'text-[20px]',
-      gap: 'gap-0.5',
-      marginTop: 'mt-[-1px]',
-    },
-    md: {
-      bora: 'text-[18px]',
-      impacta: 'text-[26px]',
-      gap: 'gap-1',
-      marginTop: 'mt-[-2px]',
-    },
-    lg: {
-      bora: 'text-[24px]',
-      impacta: 'text-[36px]',
-      gap: 'gap-1',
-      marginTop: 'mt-[-3px]',
-    },
+  const heights = {
+    sm: 'h-10',
+    md: 'h-14',
+    lg: 'h-24',
   };
 
-  const currentSize = sizes[size] || sizes.md;
+  const height = heights[size] || heights.md;
 
   return (
-    <div className={`flex flex-col select-none leading-none ${currentSize.gap} ${className}`}>
-      <span 
-        className={`font-display font-medium text-brand-cyan tracking-normal italic ${currentSize.bora}`}
-        style={{ fontFamily: '"Space Grotesk", cursive, sans-serif' }}
-      >
-        Bora
-      </span>
-      <span className={`font-sans font-black text-brand-blue tracking-tight ${currentSize.marginTop} ${currentSize.impacta}`}>
-        impacta
-      </span>
-    </div>
+    <img 
+      src={logoImg} 
+      alt="Bora Impactar" 
+      className={`object-contain select-none ${height} ${className}`} 
+    />
   );
 };
 
 export const RecifeLogo: React.FC<LogoProps> = () => {
-  // Deactivated as requested ("pode retirar da prefeitura")
   return null;
 };

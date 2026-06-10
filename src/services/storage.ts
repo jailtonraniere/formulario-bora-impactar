@@ -4,7 +4,8 @@
  */
 
 import { OrganizationData } from '../types';
-import { INITIAL_ORGANIZATIONS } from '../data/mockData';
+import publicSearchData from '../data/organizations-search.public.json';
+import privateData from '../data/organizations-private.generated.json';
 
 const STORAGE_KEY = 'bora_impactar_organizations';
 const DRAFT_KEY = 'bora_impactar_current_draft';
@@ -12,20 +13,38 @@ const DRAFT_KEY = 'bora_impactar_current_draft';
 export const storageService = {
   /**
    * Initializes or gets the full list of organizations.
+   * Seeds from the private generated JSON (imported from spreadsheet) which
+   * contains complete data for each organization.
    */
-  getOrganizations(): OrganizationData[] {
+  getOrganizations(): any[] {
     const data = localStorage.getItem(STORAGE_KEY);
+    // Convert private object-map to array (file is keyed by org ID)
+    const privateArray: any[] = Object.values(privateData as unknown as Record<string, any>);
     if (!data) {
-      // Seed initial mock organizations
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_ORGANIZATIONS));
-      return INITIAL_ORGANIZATIONS;
+      // Seed initial imported organizations (full private data from spreadsheet)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(privateArray));
+      return privateArray;
     }
     try {
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      // Auto-migration: if stored data is old public-only format (no mainCause field),
+      // reseed with full private data from spreadsheet
+      if (Array.isArray(parsed) && parsed.length > 0 && !parsed[0].mainCause && !parsed[0].history) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(privateArray));
+        return privateArray;
+      }
+      return parsed;
     } catch (e) {
       console.error('Error parsing stored organizations', e);
-      return INITIAL_ORGANIZATIONS;
+      return privateArray;
     }
+  },
+
+  /**
+   * Returns only the public search list (minimal data) for use in the search dropdown.
+   */
+  getPublicSearchList(): any[] {
+    return publicSearchData;
   },
 
   /**
@@ -116,6 +135,6 @@ export const storageService = {
   resetDatabase(): void {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(DRAFT_KEY);
-    this.getOrganizations(); // Re-seed
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.values(privateData)));
   }
 };

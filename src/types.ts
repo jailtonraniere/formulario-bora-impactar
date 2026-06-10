@@ -74,6 +74,15 @@ export interface OrganizationData {
   parentOrgName?: string;
   parentOrgCnpj?: string;
   parentOrgRelationType?: string;
+  parentOrgRep?: string;
+  parentOrgContact?: string;
+  parentOrgReceivesDonations?: string;
+  parentOrgEmitsReceipts?: string;
+  parentOrgReportingResponsible?: string;
+  formalizationExpectedDate?: string;
+  formalizationStage?: string;
+  formalizationHasSupport?: 'sim' | 'nao' | 'em_construcao' | '';
+  formalizationNeeds?: string;
   cnpj: string;
   foundationYear: string;
   legalNature: string;
@@ -134,16 +143,21 @@ export interface OrganizationData {
   territorialScope: string;
   participationCriteria: string;
   monthlyAverageAttendance: string;
+  resultsTrackingMethodsInformal?: string[];
 
   // Impact (Step 5)
   servedLast12Months: string;
   totalAttendancesLast12Months: string;
   isEstimateOrExact: 'exact' | 'estimate' | '';
   mainResultsSummary: string;
+  beneficiaryProfile?: string;
+  indicators?: string;
   indicatorStatus: 'has_indicators' | 'building' | 'no_indicators' | 'needs_support' | '';
   resultsTrackingMethod: string;
   evaluationFrequency: string;
   goalsNext12Months: string;
+  goalsMediumTerm?: string;
+  goalsLongTerm?: string;
   hasActivityReport: boolean;
   hasImpactReport: boolean;
   hasTestimonials: boolean;
@@ -155,6 +169,7 @@ export interface OrganizationData {
   priorityOdsList: string[]; // up to 3 priority ODS IDs
   odsExplanations: Record<string, string>; // explanations of contribution for priority ODSs
   odsSpecificGoalsOptional?: string;
+  odsSpecificGoals?: Record<string, string>;
   
   esgSocialPractices: string[];
   esgEnvironmentalPractices: string[];
@@ -177,10 +192,10 @@ export interface OrganizationData {
   // Resources & Partnerships (Step 7)
   annualBudgetRange: string;
   revenueSources: string[];
-  hasInstitutionalBankInstAccount: boolean;
-  canReceiveCorporateDonations: boolean;
+  hasInstitutionalBankInstAccount: 'sim' | 'nao' | '' | boolean;
+  canReceiveCorporateDonations: 'sim' | 'nao' | '' | boolean;
   emitsReceipts: boolean;
-  hasApprovedIncentiveProject: boolean;
+  hasApprovedIncentiveProject: 'sim' | 'nao' | '' | boolean;
   incentiveProjectLawName?: string;
   incentiveProjectName?: string;
   incentiveApprovedValue?: string;

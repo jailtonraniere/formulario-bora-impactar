@@ -7,6 +7,7 @@ import React from 'react';
 import { Edit2, CheckCircle2, AlertTriangle, Eye, ArrowRight, CornerDownRight, FileText } from 'lucide-react';
 import { OrganizationData } from '../types';
 import { SDG_DETAILS } from '../data/mockData';
+import { isFieldVisible } from '../config/formRules';
 
 interface ReviewTabProps {
   data: OrganizationData;
@@ -35,44 +36,44 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
     const isNew = !valOld && valNew;
 
     return (
-      <div className="py-2.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-start justify-between gap-2 text-xs">
+      <div className="py-3.5 border-b border-slate-100/60 flex flex-col sm:flex-row sm:items-start justify-between gap-2 text-xs transition-colors hover:bg-slate-50/30 px-1">
         <div className="w-full sm:w-1/3">
-          <span className="font-semibold text-slate-700">{label}</span>
+          <span className="font-bold text-slate-700">{label}</span>
         </div>
         
-        <div className="w-full sm:w-2/3 space-y-1">
+        <div className="w-full sm:w-2/3 space-y-1.5">
           {hasChanged ? (
-            <div className="space-y-1">
-              <div className="text-[10px] text-slate-400 line-through bg-red-50/50 p-1.5 rounded border border-red-100 max-w-max">
+            <div className="space-y-1.5">
+              <div className="text-[10.5px] text-slate-400 line-through bg-red-50/40 p-2 rounded-lg border border-red-100 max-w-max font-medium">
                 {String(valOld || '(Vazio)')}
               </div>
-              <div className="text-xs text-brand-blue font-semibold bg-amber-50 p-1.5 rounded border border-amber-100 max-w-max">
+              <div className="text-xs text-brand-blue font-bold bg-amber-50/60 p-2 rounded-lg border border-amber-100 max-w-max">
                 {String(valNew || '(Vazio)')}
               </div>
-              <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full uppercase scale-[0.9] inline-block">
+              <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                 ✏️ Alterado
               </span>
             </div>
           ) : isNew ? (
             <div>
-              <span className="text-slate-800 font-medium">{String(valNew || '-')}</span>
+              <span className="text-slate-800 font-semibold">{String(valNew || '-')}</span>
               <div className="mt-1">
-                <span className="text-[9px] font-bold text-brand-cyan bg-brand-cyan/10 px-2.5 py-0.5 rounded-full uppercase">
+                <span className="text-[9px] font-extrabold text-brand-cyan bg-sky-50 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                   ✨ Novo campo
                 </span>
               </div>
             </div>
           ) : valNew ? (
-            <div>
-              <span className="text-slate-800 font-medium">{String(valNew)}</span>
+            <div className="flex items-center flex-wrap gap-1">
+              <span className="text-slate-850 font-semibold">{String(valNew)}</span>
               {originalData && (
-                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full uppercase ml-2 select-none">
+                <span className="text-[9px] font-extrabold text-emerald-750 bg-emerald-50 border border-emerald-100 px-2.5 py-0.5 rounded-full uppercase select-none tracking-wider ml-1">
                   ✔️ Confirmado
                 </span>
               )}
             </div>
           ) : (
-            <span className="text-slate-300 italic">(Não preenchido)</span>
+            <span className="text-slate-400 italic font-medium">(Não preenchido)</span>
           )}
         </div>
       </div>
@@ -114,7 +115,7 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
       <div className="space-y-6">
         
         {/* Step 1: Identificação */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">1</span>
@@ -131,7 +132,8 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
           <div className="space-y-1">
             {renderCompareItem('Razão Social / Nome completo', 'name', 1)}
             {renderCompareItem('Conhecido como', 'tradingName', 1)}
-            {renderCompareItem('CNPJ', 'cnpj', 1)}
+            {isFieldVisible('cnpj', data.formalizationStatus) && renderCompareItem('CNPJ', 'cnpj', 1)}
+            {renderCompareItem('Situação de formalização', 'formalizationStatus', 1)}
             {renderCompareItem('Ano de Fundação', 'foundationYear', 1)}
             {renderCompareItem('Bairro', 'neighborhood', 1)}
             {renderCompareItem('Cidade', 'city', 1)}
@@ -140,7 +142,7 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
         </div>
 
         {/* Step 2: Contatos */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">2</span>
@@ -166,7 +168,7 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
         </div>
 
         {/* Step 3: Sobre */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">3</span>
@@ -192,7 +194,7 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
         </div>
 
         {/* Step 4: Público e Territórios */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">4</span>
@@ -230,7 +232,7 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
         </div>
 
         {/* Step 5: Impacto Social */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">5</span>
@@ -272,7 +274,7 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
         </div>
 
         {/* Step 6: ODS / ESG */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">6</span>
@@ -310,25 +312,28 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-              <div>
-                <span className="font-bold text-emerald-800 block">🍃 Ambiental:</span>
-                <p className="text-[10.5px] text-slate-600 mt-1">{data.esgEnvironmentalPractices?.join(', ') || 'Nenhum'}</p>
+            {/* ESG — only visible for non-no_cnpj */}
+            {isFieldVisible('esgEnvironmentalPractices', data.formalizationStatus) && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <span className="font-bold text-emerald-800 block">🍃 Ambiental:</span>
+                  <p className="text-[10.5px] text-slate-600 mt-1">{data.esgEnvironmentalPractices?.join(', ') || 'Nenhum'}</p>
+                </div>
+                <div>
+                  <span className="font-bold text-brand-blue block">🔵 Social:</span>
+                  <p className="text-[10.5px] text-slate-600 mt-1">{data.esgSocialPractices?.join(', ') || 'Nenhum'}</p>
+                </div>
+                <div>
+                  <span className="font-bold text-amber-800 block">🟡 Governança:</span>
+                  <p className="text-[10.5px] text-slate-600 mt-1">{data.esgGovernancePractices?.join(', ') || 'Nenhum'}</p>
+                </div>
               </div>
-              <div>
-                <span className="font-bold text-brand-blue block">🔵 Social:</span>
-                <p className="text-[10.5px] text-slate-600 mt-1">{data.esgSocialPractices?.join(', ') || 'Nenhum'}</p>
-              </div>
-              <div>
-                <span className="font-bold text-amber-800 block">🟡 Governança:</span>
-                <p className="text-[10.5px] text-slate-600 mt-1">{data.esgGovernancePractices?.join(', ') || 'Nenhum'}</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Step 7: Parcerias */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">7</span>
@@ -344,24 +349,32 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
           </div>
           <div className="space-y-1">
             {renderCompareItem('Faixa de Orçamento Anual', 'annualBudgetRange', 7)}
-            {renderCompareItem('Cita de Empresas Parceiras', 'supportedCompaniesNames', 7)}
-            
-            <div className="py-1 flex flex-wrap gap-x-4 gap-y-2 mt-1 text-xs">
-              <span className="flex items-center gap-1 font-medium text-slate-700">
-                📥 Conta bancária institucional? <strong className="text-brand-blue">{data.hasInstitutionalBankInstAccount ? 'Sim' : 'Não'}</strong>
-              </span>
-              <span className="flex items-center gap-1 font-medium text-slate-700">
-                🧾 Emite recibos aos doadores? <strong className="text-brand-blue">{data.emitsReceipts ? 'Sim' : 'Não'}</strong>
-              </span>
-              <span className="flex items-center gap-1 font-medium text-slate-700">
-                ⚖️ Projeto aprovado em lei incentivo? <strong className="text-brand-blue">{data.hasApprovedIncentiveProject ? 'Sim' : 'Não'}</strong>
-              </span>
-            </div>
+            {renderCompareItem('Empresas Parceiras Anteriores', 'supportedCompaniesNames', 7)}
+
+            {isFieldVisible('hasInstitutionalBankInstAccount', data.formalizationStatus) && (
+              <div className="py-1 flex flex-wrap gap-x-4 gap-y-2 mt-1 text-xs">
+                <span className="flex items-center gap-1 font-medium text-slate-700">
+                  📥 Conta bancária institucional? <strong className="text-brand-blue">{data.hasInstitutionalBankInstAccount ? 'Sim' : 'Não'}</strong>
+                </span>
+                <span className="flex items-center gap-1 font-medium text-slate-700">
+                  🧾 Emite recibos aos doadores? <strong className="text-brand-blue">{data.emitsReceipts ? 'Sim' : 'Não'}</strong>
+                </span>
+                <span className="flex items-center gap-1 font-medium text-slate-700">
+                  ⚖️ Projeto aprovado em lei incentivo? <strong className="text-brand-blue">{data.hasApprovedIncentiveProject ? 'Sim' : 'Não'}</strong>
+                </span>
+              </div>
+            )}
+
+            {data.formalizationStatus === 'no_cnpj' && (
+              <div className="py-2 text-[11px] text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3">
+                💡 Projetos sem CNPJ não precisam de conta jurídica própria para participar do catálogo.
+              </div>
+            )}
           </div>
         </div>
 
         {/* Step 8: Oportunidades & Voluntariado */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">8</span>
@@ -417,7 +430,7 @@ export const ReviewTab: React.FC<ReviewTabProps> = ({
         </div>
 
         {/* Step 9: Anexos Simulados */}
-        <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm space-y-3">
+        <div className="bg-white/90 backdrop-blur-md p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-4 hover:border-slate-300 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h4 className="font-bold text-sm text-brand-blue flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-brand-cyan/10 text-brand-cyan flex items-center justify-center text-xs">9</span>

@@ -13,12 +13,13 @@ import {
 import { OrganizationData, FormStatus, ImpactResult, Opportunity } from './types';
 import { INITIAL_ORGANIZATIONS, EMPTY_ORGANIZATION, LIST_OF_CAUSES, LIST_OF_NEIGHBORHOODS, COOPERATIVE_OPPORTUNITIES_CATEGORIES } from './data/mockData';
 import { storageService } from './services/storage';
+import { apiService } from './services/api';
 import { RecifeLogo, BoraImpactarLogo } from './components/Logo';
 import { InputField, TextAreaField, SelectField, ProgressBar, PhoneMaskHelper, CnpjMaskHelper, CepMaskHelper, YesNoField } from './components/FormFields';
 import { SearchSection } from './components/SearchSection';
 import { OdsEsgGov } from './components/OdsEsgGov';
 import { ReviewTab } from './components/ReviewTab';
-import { AdminPanel } from './components/AdminPanel';
+import { isFieldVisible, isFieldRequired } from './config/formRules';
 
 export interface StepProgressInfo {
   step: number;
@@ -28,6 +29,7 @@ export interface StepProgressInfo {
   filled: number;
   total: number;
   missing: string[];
+  missingIds: string[];
 }
 
 export function getStepCompletionData(data: OrganizationData): StepProgressInfo[] {
@@ -35,208 +37,406 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
   const isArrayFilled = (val: any[] | undefined | null) => Array.isArray(val) && val.length > 0;
   const isDefined = (val: any) => val !== undefined && val !== null && val !== '';
 
+  const isFieldFilled = (fieldId: string): boolean => {
+    if (fieldId.startsWith('simulatedFiles.')) {
+      const fileKey = fieldId.split('.')[1];
+      const fileVal = data.simulatedFiles?.[fileKey as keyof typeof data.simulatedFiles];
+      return isStringFilled(fileVal as any) || isArrayFilled(fileVal as any);
+    }
+    
+    if (fieldId.startsWith('volunteerData.')) {
+      const subKey = fieldId.split('.')[1];
+      const val = data.volunteerData?.[subKey as keyof typeof data.volunteerData];
+      if (typeof val === 'boolean') return true;
+      return isDefined(val);
+    }
+
+    const val = data[fieldId as keyof OrganizationData];
+    if (Array.isArray(val)) {
+      return isArrayFilled(val);
+    }
+    if (typeof val === 'boolean') {
+      return val !== null && val !== undefined;
+    }
+    return isDefined(val);
+  };
+
+  const status = data.formalizationStatus || '';
   const steps: StepProgressInfo[] = [];
 
-  // 1. Identificação
+  // Step 1: Identificação Básica
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'Nome oficial da organização', filled: isStringFilled(data.name) },
-      { label: 'Situação de formalização', filled: isStringFilled(data.formalizationStatus) },
-      { label: 'CEP', filled: isStringFilled(data.cep) },
-      { label: 'Bairro', filled: isStringFilled(data.neighborhood) },
-      { label: 'Rua', filled: isStringFilled(data.street) },
-      { label: 'Número', filled: isStringFilled(data.number) },
-      { label: 'Horário de funcionamento', filled: isStringFilled(data.operatingHours) },
+    const fields = [
+      'name', 'tradingName', 'formalizationStatus', 'cnpj', 'legalNature', 'foundationYear', 
+      'cep', 'street', 'number', 'complement', 'neighborhood', 'city', 'state', 'operatingHours',
+      'parentOrgName', 'parentOrgCnpj', 'parentOrgRelationType', 'parentOrgRep', 'parentOrgContact',
+      'parentOrgReceivesDonations', 'parentOrgEmitsReceipts', 'parentOrgReportingResponsible',
+      'formalizationExpectedDate', 'formalizationStage', 'formalizationHasSupport', 'formalizationNeeds'
     ];
-    if (data.formalizationStatus === 'with_cnpj') {
-      items.push({ label: 'CNPJ', filled: isStringFilled(data.cnpj) });
-    }
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    
+    // Extra checks for list structures that are required
+    const extraFieldsToCheck = [
+      { id: 'citiesOfActivity', label: 'Cidades onde atua' },
+      { id: 'neighborhoodsOfActivity', label: 'Bairros onde atua' }
+    ];
+    extraFieldsToCheck.forEach(f => {
+      if (isFieldVisible(f.id, status) && isFieldRequired(f.id, status)) {
+        requiredVisibleFields.push(f.id);
+      }
+    });
+
+    const filledRequired = requiredVisibleFields.filter(f => isFieldFilled(f));
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+    
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'name') return 'Nome oficial';
+        if (f === 'formalizationStatus') return 'Situação de formalização';
+        if (f === 'cnpj') return 'CNPJ';
+        if (f === 'foundationYear') return 'Ano de fundação';
+        if (f === 'cep') return 'CEP';
+        if (f === 'street') return 'Rua';
+        if (f === 'number') return 'Número';
+        if (f === 'neighborhood') return 'Bairro';
+        if (f === 'operatingHours') return 'Horário de funcionamento';
+        if (f === 'legalNature') return 'Natureza jurídica';
+        if (f === 'citiesOfActivity') return 'Cidades onde atua';
+        if (f === 'neighborhoodsOfActivity') return 'Bairros onde atua';
+        if (f.startsWith('parentOrg')) return 'Informações da organização parceira';
+        if (f.startsWith('formalization')) return 'Previsões e apoios de formalização';
+        return f;
+      });
+
     steps.push({
       step: 1,
       name: 'Identificação',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
-  // 2. Contatos
+  // Step 2: Representantes e Contatos
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'Quem está preenchendo', filled: isStringFilled(data.fillerName) },
-      { label: 'Telefone de contato', filled: isStringFilled(data.phone) },
-      { label: 'WhatsApp', filled: isStringFilled(data.whatsapp) },
-      { label: 'E-mail principal', filled: isStringFilled(data.email) },
+    const fields = [
+      'fillerName', 'fillerRole', 'legalRepName', 'legalRepRole', 'phone', 'whatsapp', 'email',
+      'phonePermission', 'whatsappPermission', 'emailPermission'
     ];
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    const filledRequired = requiredVisibleFields.filter(f => isFieldFilled(f));
+    
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'fillerName') return 'Quem está preenchendo';
+        if (f === 'fillerRole') return 'Função de quem preenche';
+        if (f === 'legalRepName') return 'Nome do responsável legal';
+        if (f === 'legalRepRole') return 'Cargo do responsável legal';
+        if (f === 'phone') return 'Telefone';
+        if (f === 'whatsapp') return 'WhatsApp';
+        if (f === 'email') return 'E-mail';
+        if (f.endsWith('Permission')) return 'Autorização de compartilhamento de contatos';
+        return f;
+      });
+
     steps.push({
       step: 2,
       name: 'Contatos',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
-  // 3. Atuação e perfil
+  // Step 3: Atuação e perfil
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'Causa principal', filled: isStringFilled(data.mainCause) },
-      { label: 'Histórico da iniciativa', filled: isStringFilled(data.history) },
-      { label: 'Missão', filled: isStringFilled(data.mission) },
-      { label: 'Problema prioritário', filled: isStringFilled(data.socialProblem) },
-      { label: 'Principais atividades', filled: isStringFilled(data.mainActivities) },
+    const fields = [
+      'mainCause', 'history', 'mission', 'vision', 'values', 'socialProblem', 'relevanceRecife',
+      'mainActivities', 'differentiator'
     ];
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    const filledRequired = requiredVisibleFields.filter(f => isFieldFilled(f));
+    
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'mainCause') return 'Causa principal';
+        if (f === 'history') return 'Histórico';
+        if (f === 'mission') return 'Missão';
+        if (f === 'vision') return 'Visão de futuro';
+        if (f === 'values') return 'Valores';
+        if (f === 'socialProblem') return 'Problema prioritário';
+        if (f === 'relevanceRecife') return 'Relevância para Recife';
+        if (f === 'mainActivities') return 'Atividades principais';
+        if (f === 'differentiator') return 'Diferencial';
+        return f;
+      });
+
     steps.push({
       step: 3,
       name: 'Atuação e perfil',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
-  // 4. Público e território
+  // Step 4: Público e território
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'Públicos atendidos', filled: isArrayFilled(data.audiences) },
-      { label: 'Faixas etárias', filled: isArrayFilled(data.ageRanges) },
-      { label: 'Bairros de atuação', filled: isArrayFilled(data.neighborhoodsOfActivity) },
+    const fields = [
+      'audiences', 'ageRanges', 'neighborhoodsOfActivity', 'communitiesAttended', 'citiesOfActivity',
+      'attendanceType', 'territorialScope', 'participationCriteria', 'monthlyAverageAttendance'
     ];
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    const filledRequired = requiredVisibleFields.filter(f => isFieldFilled(f));
+    
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'audiences') return 'Públicos atendidos';
+        if (f === 'ageRanges') return 'Faixas etárias';
+        if (f === 'neighborhoodsOfActivity') return 'Bairros de atuação';
+        if (f === 'communitiesAttended') return 'Comunidades atendidas';
+        if (f === 'citiesOfActivity') return 'Cidades de atuação';
+        if (f === 'attendanceType') return 'Tipo de atendimento';
+        if (f === 'territorialScope') return 'Abrangência territorial';
+        if (f === 'participationCriteria') return 'Critérios de participação';
+        if (f === 'monthlyAverageAttendance') return 'Atendimentos médios mensais';
+        return f;
+      });
+
     steps.push({
       step: 4,
       name: 'Público e território',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
-  // 5. Resultados e impacto
+  // Step 5: Resultados e impacto
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'Beneficiários atendidos', filled: isStringFilled(data.servedLast12Months) },
-      { label: 'Atendimentos realizados', filled: isStringFilled(data.totalAttendancesLast12Months) },
-      { label: 'Tipo de dado', filled: isStringFilled(data.isEstimateOrExact) },
-      { label: 'Resumo das conquistas', filled: isStringFilled(data.mainResultsSummary) },
+    const fields = [
+      'servedLast12Months', 'totalAttendancesLast12Months', 'isEstimateOrExact', 'mainResultsSummary',
+      'beneficiaryProfile', 'indicators', 'indicatorStatus', 'resultsTrackingMethod', 'evaluationFrequency',
+      'goalsNext12Months', 'goalsMediumTerm', 'goalsLongTerm', 'hasActivityReport', 'hasImpactReport',
+      'hasTestimonials', 'authorizeTestimonialsPublishing', 'resultsTrackingMethodsInformal'
     ];
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    const filledRequired = requiredVisibleFields.filter(f => isFieldFilled(f));
+    
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'servedLast12Months') return 'Pessoas atendidas nos últimos 12 meses';
+        if (f === 'totalAttendancesLast12Months') return 'Total de atividades/participações';
+        if (f === 'isEstimateOrExact') return 'Exatidão da métrica de pessoas';
+        if (f === 'mainResultsSummary') return 'Resultados/mudanças percebidas';
+        if (f === 'beneficiaryProfile') return 'Perfil dos beneficiários';
+        if (f === 'indicators') return 'Indicadores utilizados';
+        if (f === 'indicatorStatus') return 'Maturidade dos indicadores';
+        if (f === 'resultsTrackingMethod') return 'Como mede resultados';
+        if (f === 'goalsNext12Months') return 'Metas de curto prazo';
+        if (f === 'resultsTrackingMethodsInformal') return 'Métodos de acompanhamento';
+        return f;
+      });
+
     steps.push({
       step: 5,
       name: 'Resultados e impacto',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
-  // 6. ODS e governança
+  // Step 6: ODS e governança
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'ODS selecionados', filled: isArrayFilled(data.selectedOdsList) },
-    ];
-    // Add Prioritized ODS explanations to required fields if they exist as priorities
-    if (data.priorityOdsList && data.priorityOdsList.length > 0) {
+    const visibleOdsExplanations: string[] = [];
+    if (isArrayFilled(data.priorityOdsList)) {
       data.priorityOdsList.forEach(odsId => {
-        const hasExplanation = isStringFilled(data.odsExplanations?.[odsId]);
-        items.push({
-          label: `Explicação do ODS ${odsId.replace('ods_', '')}`,
-          filled: hasExplanation
-        });
+        visibleOdsExplanations.push(`odsExplanations.${odsId}`);
       });
     }
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+
+    const fields = [
+      'selectedOdsList', 'priorityOdsList',
+      'governanceHasBylaws', 'governanceHasBoard', 'governanceHasFiscalCouncil', 'governanceHasAdminCouncil',
+      'governanceDoesMeetings', 'governanceHasReporingPolicy', 'governancePublishesReports', 'governancePublishesFinance',
+      'governanceHasEthicsCode', 'governanceHasChildProtection', 'governanceHasDataProtection', 'governanceHasWhistleblowerChannel'
+    ];
+    
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    
+    visibleOdsExplanations.forEach(explKey => {
+      requiredVisibleFields.push(explKey);
+    });
+
+    const filledRequired = requiredVisibleFields.filter(f => {
+      if (f.startsWith('odsExplanations.')) {
+        const odsId = f.split('.')[1];
+        return isStringFilled(data.odsExplanations?.[odsId]);
+      }
+      return isFieldFilled(f);
+    });
+
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'selectedOdsList') return 'Seleção de ODSs';
+        if (f === 'priorityOdsList') return 'Definição de ODS prioritários';
+        if (f.startsWith('odsExplanations.')) {
+          const num = f.split('_')[1];
+          return `Explicação do ODS ${num}`;
+        }
+        return 'Perguntas de Governança formal';
+      });
+
     steps.push({
       step: 6,
       name: 'ODS e governança',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
-  // 7. Recursos e oportunidades
+  // Step 7: Recursos e oportunidades
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'Orçamento anual estimado', filled: isStringFilled(data.annualBudgetRange) },
-      { label: 'Conta jurídica ativa', filled: isDefined(data.hasInstitutionalBankInstAccount) },
-      { label: 'Pode receber de empresas', filled: isDefined(data.canReceiveCorporateDonations) },
+    const fields = [
+      'annualBudgetRange', 'revenueSources', 'hasInstitutionalBankInstAccount', 
+      'canReceiveCorporateDonations', 'emitsReceipts', 'hasApprovedIncentiveProject'
     ];
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    const filledRequired = requiredVisibleFields.filter(f => isFieldFilled(f));
+
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'annualBudgetRange') return 'Orçamento anual';
+        if (f === 'revenueSources') return 'Fontes de receita';
+        if (f === 'hasInstitutionalBankInstAccount') return 'Conta bancária jurídica';
+        if (f === 'canReceiveCorporateDonations') return 'Pode receber repasses empresariais';
+        return f;
+      });
+
     steps.push({
       step: 7,
       name: 'Recursos e oportunidades',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
-  // 8. Materiais
+  // Step 8: Materiais
   {
-    const items: { label: string; filled: boolean }[] = [
-      { label: 'Autorização sobre fotos', filled: isDefined(data.photosAuthorization) },
-      { label: 'Autorização sobre documentos', filled: isDefined(data.documentsReviewAuthorization) },
+    const fields = [
+      'photosAuthorization', 'documentsReviewAuthorization'
     ];
-    const filled = items.filter(i => i.filled).length;
-    const total = items.length;
-    const pct = total > 0 ? Math.round((filled / total) * 100) : 0;
+    const visibleFields = fields.filter(f => isFieldVisible(f, status));
+    const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
+    const filledRequired = requiredVisibleFields.filter(f => isFieldFilled(f));
+
+    const filledCount = filledRequired.length;
+    const totalCount = requiredVisibleFields.length;
+    const pct = totalCount > 0 ? Math.round((filledCount / totalCount) * 100) : 100;
+
+    const missingLabels = requiredVisibleFields
+      .filter(f => !filledRequired.includes(f))
+      .map(f => {
+        if (f === 'photosAuthorization') return 'Autorização de imagem/fotos';
+        if (f === 'documentsReviewAuthorization') return 'Autorização de auditoria de documentos';
+        return f;
+      });
+
     steps.push({
       step: 8,
       name: 'Materiais',
       percentage: pct,
       status: pct === 100 ? 'completed' : pct > 0 ? 'in_progress' : 'pending',
-      filled,
-      total,
-      missing: items.filter(i => !i.filled).map(i => i.label),
+      filled: filledCount,
+      total: totalCount,
+      missing: Array.from(new Set(missingLabels)),
+      missingIds: requiredVisibleFields.filter(f => !filledRequired.includes(f))
     });
   }
 
   return steps;
 }
 
-
 export default function App() {
   // State definitions
-  const [currentView, setCurrentView] = useState<'home' | 'search' | 'formalization_ask' | 'diagnostic' | 'form' | 'success' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'search' | 'formalization_ask' | 'diagnostic' | 'form' | 'success'>('home');
   const [organizations, setOrganizations] = useState<OrganizationData[]>([]);
   const [formData, setFormData] = useState<OrganizationData>({ ...EMPTY_ORGANIZATION });
   const [originalData, setOriginalData] = useState<OrganizationData | null>(null);
+
+  // Secure Token access states
+  const [currentToken, setCurrentToken] = useState<string>('');
+  const [isLoadingToken, setIsLoadingToken] = useState<boolean>(false);
+  const [tokenError, setTokenError] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
   // Wizards
   const [currentStep, setCurrentStep] = useState<number>(1);
-  const totalSteps = 8; // Exactly 8 editing stages, the 9th step is the review and consent section
+  const totalSteps = 9; // Exactly 9 stages in total including Review & Consent section
   
   // UI states
   const [fictiveProtocol, setFictiveProtocol] = useState<string>('');
@@ -247,10 +447,13 @@ export default function App() {
   const [showHelpNoCnpj, setShowHelpNoCnpj] = useState<boolean>(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isAutoSavedBlinking, setIsAutoSavedBlinking] = useState<boolean>(false);
+  const [showStatusConfirmModal, setShowStatusConfirmModal] = useState<boolean>(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<OrganizationData['formalizationStatus']>('');
 
   // CEP autocomplete states
   const [isFetchingCep, setIsFetchingCep] = useState<boolean>(false);
   const [cepErrorMessage, setCepErrorMessage] = useState<string>('');
+  const [neighborhoodSearch, setNeighborhoodSearch] = useState<string>('');
 
   // Helper function to map neighborhood of Recife to RPA (Região Político-Administrativa)
   const mapNeighborhoodToRpa = (neighborhoodStr: string): string => {
@@ -323,14 +526,58 @@ export default function App() {
   const filledFields = stepProgressList.reduce((acc, curr) => acc + curr.filled, 0);
   const overallPct = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
 
-  // Load organizations and check for existing drafts on mount
+  // Load draft by token helper
+  const loadDraftByToken = async (token: string, orgsList: OrganizationData[]) => {
+    setIsLoadingToken(true);
+    setTokenError('');
+    try {
+      const response = await apiService.getDraft(token);
+      if (response.success && response.data) {
+        setFormData(response.data.dados);
+        if (response.data.dados.id) {
+          setIsNewRegistration(false);
+          const matchedOrg = orgsList.find(o => o.id === response.data!.dados.id);
+          if (matchedOrg) {
+            setOriginalData(matchedOrg);
+          } else {
+            const backendOriginal = (response.data as any).originalDados;
+            if (backendOriginal) {
+              setOriginalData(backendOriginal);
+            }
+          }
+        } else {
+          setIsNewRegistration(true);
+        }
+        setCurrentStep(response.data.etapa_atual || 1);
+        setCurrentView('form');
+      } else {
+        setTokenError(response.error?.message || 'Token de acesso inválido ou expirado.');
+      }
+    } catch (err: any) {
+      setTokenError('Erro ao carregar dados do rascunho seguro.');
+      console.error(err);
+    } finally {
+      setIsLoadingToken(false);
+    }
+  };
+
+  // Load organizations and check for existing drafts or URL token on mount
   useEffect(() => {
-    const list = storageService.getOrganizations();
+    // Use the public search list for the search dropdown (fast, minimal data)
+    const list = storageService.getPublicSearchList();
     setOrganizations(list);
 
-    const activeDraft = storageService.getCurrentDraft();
-    if (activeDraft) {
-      setShowDraftModal(true);
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (token) {
+      setCurrentToken(token);
+      loadDraftByToken(token, list);
+    } else {
+      const activeDraft = storageService.getCurrentDraft();
+      if (activeDraft) {
+        setShowDraftModal(true);
+      }
     }
   }, []);
 
@@ -339,10 +586,18 @@ export default function App() {
     if (currentView === 'form' && formData.name.trim() !== '') {
       storageService.saveCurrentDraft(formData);
       setIsAutoSavedBlinking(true);
-      const timer = setTimeout(() => setIsAutoSavedBlinking(false), 800);
+
+      if (currentToken) {
+        const delayDebounceFn = setTimeout(async () => {
+          await apiService.saveDraft(currentToken, currentStep, overallPct, formData);
+        }, 2000);
+        return () => clearTimeout(delayDebounceFn);
+      }
+
+      const timer = setTimeout(() => setIsAutoSavedBlinking(false), 805);
       return () => clearTimeout(timer);
     }
-  }, [formData, currentView]);
+  }, [formData, currentView, currentToken, currentStep, overallPct]);
 
   // Restore draft
   const handleRestoreDraft = () => {
@@ -371,12 +626,22 @@ export default function App() {
   const [isNewRegistration, setIsNewRegistration] = useState<boolean>(true);
 
   // Initiates high-fidelity update of pre-existing organization
-  const handleSelectOrganization = (org: OrganizationData) => {
-    const deepCopiedOrg = JSON.parse(JSON.stringify(org));
-    setOriginalData(deepCopiedOrg);
-    setFormData(deepCopiedOrg);
-    setIsNewRegistration(false);
-    setCurrentView('diagnostic');
+  const handleSelectOrganization = (org: any) => {
+    try {
+      const deepCopiedOrg = JSON.parse(JSON.stringify(org));
+      setOriginalData(deepCopiedOrg);
+      setFormData(prev => ({ ...prev, ...deepCopiedOrg }));
+      setIsNewRegistration(false);
+      setCurrentStep(1);
+      setCurrentView('form');
+    } catch (err) {
+      console.error('Error loading organization data:', err);
+      // Fallback: start fresh with org name pre-filled
+      setFormData(prev => ({ ...prev, name: org.name || '', id: org.id || '' }));
+      setIsNewRegistration(false);
+      setCurrentStep(1);
+      setCurrentView('form');
+    }
   };
 
   // Initiates new organization workflow
@@ -401,26 +666,55 @@ export default function App() {
     const valNew = formData[fieldName];
     const valOld = originalData[fieldName];
     
-    // For arrays or sublists compare lengths
+    const isEmpty = (val: any): boolean => {
+      if (val === undefined || val === null) return true;
+      if (typeof val === 'string') return val.trim() === '';
+      if (Array.isArray(val)) return val.length === 0;
+      if (typeof val === 'object') return Object.keys(val).length === 0;
+      return false;
+    };
+
+    const isOldEmpty = isEmpty(valOld);
+    const isNewEmpty = isEmpty(valNew);
+
+    let isUnchanged = false;
     if (Array.isArray(valNew) && Array.isArray(valOld)) {
-      const isUnchanged = valNew.length === valOld.length && valNew.every(v => valOld.includes(v));
-      if (isUnchanged) {
-        return <span className="text-[9px] bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none">✔️ Historico</span>;
-      } else {
-        return <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none">✏️ Alterado</span>;
-      }
+      isUnchanged = valNew.length === valOld.length && valNew.every(v => valOld.includes(v));
+    } else if (typeof valNew === 'object' && typeof valOld === 'object' && valNew !== null && valOld !== null) {
+      isUnchanged = JSON.stringify(valNew) === JSON.stringify(valOld);
+    } else {
+      isUnchanged = valNew === valOld;
     }
 
-    if (valOld && valNew !== valOld && valOld !== '') {
-      return <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none">✏️ Alterado</span>;
+    if (!isOldEmpty) {
+      if (isUnchanged) {
+        return (
+          <span className="text-[9px] bg-slate-100 text-slate-600 font-extrabold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none border border-slate-200">
+            ✔️ Do cadastro anterior
+          </span>
+        );
+      } else {
+        return (
+          <span className="text-[9px] bg-amber-100 text-amber-800 font-extrabold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none border border-amber-200">
+            ✏️ Atualizado
+          </span>
+        );
+      }
+    } else {
+      if (isNewEmpty) {
+        return (
+          <span className="text-[9px] bg-rose-50 text-rose-600 font-medium px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none border border-rose-100">
+            Esta informação ainda não foi cadastrada.
+          </span>
+        );
+      } else {
+        return (
+          <span className="text-[9px] bg-sky-100 text-sky-800 font-extrabold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none border border-sky-200">
+            ✨ Novo
+          </span>
+        );
+      }
     }
-    if (valOld && valNew === valOld) {
-      return <span className="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none">✔️ Confirmado</span>;
-    }
-    if (!valOld && valNew) {
-      return <span className="text-[9px] bg-sky-100 text-sky-800 font-bold px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none">✨ Novo</span>;
-    }
-    return <span className="text-[9px] bg-slate-100 text-slate-400 font-medium px-2 py-0.5 rounded uppercase select-none scale-[0.8] inline-block mb-1 ml-1 leading-none">Pendente</span>;
   };
 
   // AI text helper simulation rewrite
@@ -446,6 +740,30 @@ export default function App() {
 
   // Generic step transitions
   const handleNextStep = () => {
+    if (currentStep >= 1 && currentStep <= 8) {
+      const stepInfo = stepProgressList.find(s => s.step === currentStep);
+      if (stepInfo && stepInfo.missingIds && stepInfo.missingIds.length > 0) {
+        const msgs = stepInfo.missing.map(label => `O campo "${label}" é obrigatório e está pendente.`);
+        setValidationErrors(msgs);
+        
+        const firstErrorId = stepInfo.missingIds[0];
+        let focusId = firstErrorId;
+        if (focusId.startsWith('odsExplanations.')) {
+          focusId = focusId.split('.')[1];
+        }
+        
+        setTimeout(() => {
+          const el = document.getElementById(focusId);
+          if (el) {
+            el.focus();
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
+        return;
+      }
+    }
+
+    setValidationErrors([]);
     if (currentStep < totalSteps) {
       setCurrentStep(prev => prev + 1);
       window.scrollTo(0, 0);
@@ -457,6 +775,20 @@ export default function App() {
       setCurrentStep(prev => prev - 1);
       window.scrollTo(0, 0);
     }
+  };
+
+  const handleFormalizationStatusChange = (newStatus: OrganizationData['formalizationStatus']) => {
+    if (newStatus === formData.formalizationStatus) return;
+    setPendingStatusChange(newStatus);
+    setShowStatusConfirmModal(true);
+  };
+
+  const confirmFormalizationStatusChange = () => {
+    if (pendingStatusChange) {
+      setFormData(prev => ({ ...prev, formalizationStatus: pendingStatusChange }));
+      setPendingStatusChange('');
+    }
+    setShowStatusConfirmModal(false);
   };
 
   // Submission validation
@@ -478,29 +810,55 @@ export default function App() {
     return list.length === 0;
   };
 
-  // Submission handler (simulated)
-  const handleSubmitForm = () => {
+  // Submission handler
+  const handleSubmitForm = async () => {
     if (!validateForm()) {
       return;
     }
 
-    const submissionResult = storageService.submitRegistration(formData);
-    if (submissionResult.success) {
-      setFictiveProtocol(submissionResult.protocol);
-      setOriginalData(null);
-      setCurrentView('success');
+    setIsSubmitting(true);
+    try {
+      let response;
+      if (currentToken && !isNewRegistration) {
+        response = await apiService.submitExistingOrganizationUpdate(currentToken, formData);
+      } else {
+        response = await apiService.submitNewOrganization(formData);
+      }
+      
+      if (response.success && response.data) {
+        setFictiveProtocol(response.data.protocol);
+        setOriginalData(null);
+        storageService.clearCurrentDraft();
+        setCurrentView('success');
+      } else {
+        alert(response.error?.message || 'Erro ao submeter o formulário.');
+      }
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      alert('Erro de conexão ao submeter o formulário.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   // Materials submission upload simulator
   const simulateFileUpload = (fileKey: keyof OrganizationData['simulatedFiles'], defaultName: string) => {
-    setFormData(prev => ({
-      ...prev,
-      simulatedFiles: {
-        ...prev.simulatedFiles,
-        [fileKey]: defaultName
+    setFormData(prev => {
+      const currentVal = prev.simulatedFiles?.[fileKey];
+      let newVal: any;
+      if (fileKey === 'photos') {
+        newVal = [...(Array.isArray(currentVal) ? currentVal : []), defaultName];
+      } else {
+        newVal = defaultName;
       }
-    }));
+      return {
+        ...prev,
+        simulatedFiles: {
+          ...prev.simulatedFiles,
+          [fileKey]: newVal
+        }
+      };
+    });
   };
 
   // Helper to generate and apply standard operating hours string
@@ -576,12 +934,28 @@ export default function App() {
   };
 
   // Specific Lists logic for Step 8 (Opportunities List up to 5)
-  const [newOpportunity, setNewOpportunity] = useState({ title: '', category: '', description: '', itemsNeeded: '', quantityNeeded: '', estimatedValue: '', urgency: 'medium' as any, beneficiaryPublic: '' });
+  const [newOpportunity, setNewOpportunity] = useState({
+    title: '',
+    category: '',
+    description: '',
+    itemsNeeded: '',
+    quantityNeeded: '',
+    estimatedValue: '',
+    acceptsPartialSupport: true,
+    urgency: 'medium' as any,
+    deadline: '',
+    location: '',
+    beneficiaryPublic: '',
+    estimatedBeneficiaryCount: 0,
+    expectedResult: '',
+    offeredCounterparts: [] as string[],
+    responsibleName: ''
+  });
   const [expandedOpportunityId, setExpandedOpportunityId] = useState<string | null>(null);
 
   const handleAddOpportunity = () => {
     if (!newOpportunity.title || !newOpportunity.category) {
-      alert('Por favor preencha o título e a categoria da oportunidade.');
+      alert('Por favor preencha o título e o tipo de apoio da oportunidade.');
       return;
     }
     const list = [...(formData.corporateOpportunitiesList || [])];
@@ -598,20 +972,36 @@ export default function App() {
       itemsNeeded: newOpportunity.itemsNeeded,
       quantityNeeded: newOpportunity.quantityNeeded,
       estimatedValue: newOpportunity.estimatedValue,
-      acceptsPartialSupport: true,
+      acceptsPartialSupport: newOpportunity.acceptsPartialSupport,
       urgency: newOpportunity.urgency,
-      deadline: '',
-      location: formData.neighborhood || 'Recife',
+      deadline: newOpportunity.deadline,
+      location: newOpportunity.location || formData.neighborhood || 'Recife',
       beneficiaryPublic: newOpportunity.beneficiaryPublic,
-      estimatedBeneficiaryCount: 0,
-      expectedResult: '',
+      estimatedBeneficiaryCount: Number(newOpportunity.estimatedBeneficiaryCount) || 0,
+      expectedResult: newOpportunity.expectedResult,
       evidencePresented: '',
-      offeredCounterparts: ['Uso da marca como apoiadora', 'Certificado de parceria'],
-      responsibleName: formData.fillerName || formData.legalRepName,
+      offeredCounterparts: newOpportunity.offeredCounterparts.length > 0 ? newOpportunity.offeredCounterparts : ['Uso da marca como apoiadora', 'Certificado de parceria'],
+      responsibleName: newOpportunity.responsibleName || formData.fillerName || formData.legalRepName,
       status: 'open'
     };
     setFormData(prev => ({ ...prev, corporateOpportunitiesList: [...list, item] }));
-    setNewOpportunity({ title: '', category: '', description: '', itemsNeeded: '', quantityNeeded: '', estimatedValue: '', urgency: 'medium', beneficiaryPublic: '' });
+    setNewOpportunity({
+      title: '',
+      category: '',
+      description: '',
+      itemsNeeded: '',
+      quantityNeeded: '',
+      estimatedValue: '',
+      acceptsPartialSupport: true,
+      urgency: 'medium',
+      deadline: '',
+      location: '',
+      beneficiaryPublic: '',
+      estimatedBeneficiaryCount: 0,
+      expectedResult: '',
+      offeredCounterparts: [],
+      responsibleName: ''
+    });
   };
 
   const handleRemoveOpportunity = (id: string) => {
@@ -637,52 +1027,29 @@ export default function App() {
     <div className="min-h-screen bg-bg-light select-none font-sans flex flex-col pt-0 pb-16">
       
       {/* GLOBAL HEADER BAR */}
-      <header className="bg-white border-b border-border-soft sticky top-0 z-40 shadow-sm px-4 py-3 select-none">
+      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-sm px-6 py-3 select-none">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3">
-              <BoraImpactarLogo size="sm" />
+            <div className="flex items-center gap-3 font-sans">
+              <span className="font-extrabold text-base sm:text-lg text-brand-blue tracking-tight">Bora Impactar</span>
+              <span className="text-slate-300 font-light">|</span>
+              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Atualização Cadastral</span>
             </div>
             {currentView === 'form' && (
-              <div className="hidden lg:flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className={`text-xs ml-1 font-semibold text-brand-blue ${isAutoSavedBlinking ? 'text-brand-cyan scale-105 transition-all' : ''}`}>
-                  Modo Form • Rascunho salvo
+              <div className="hidden lg:flex items-center gap-2 bg-emerald-50 border border-emerald-100/60 px-3 py-1 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className={`text-[10px] font-bold text-emerald-800 tracking-wide uppercase ${isAutoSavedBlinking ? 'text-brand-cyan scale-105 transition-all' : ''}`}>
+                  Rascunho salvo no navegador
                 </span>
               </div>
             )}
           </div>
           
           <div className="flex items-center gap-3">
-            {currentView !== 'admin' ? (
-              <button
-                onClick={() => {
-                  if (currentView === 'form') {
-                    storageService.saveCurrentDraft(formData);
-                  }
-                  setCurrentView('admin');
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-brand-blue hover:text-brand-cyan bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-bold transition select-none shadow-sm cursor-pointer"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-brand-cyan" />
-                <span>Painel Admin</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  setCurrentView('home');
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-brand-blue hover:text-brand-cyan bg-slate-50 hover:bg-slate-100 rounded-lg text-xs font-bold transition select-none shadow-sm cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5 text-brand-cyan" />
-                <span>Voltar ao Portal</span>
-              </button>
-            )}
-
-            {currentView !== 'home' && currentView !== 'admin' && (
+            {currentView !== 'home' && (
               <button
                 onClick={() => setShowExitModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 border border-red-100 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg text-xs font-bold transition select-none shadow-sm cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 bg-white hover:bg-red-50 hover:text-red-650 hover:border-red-100 rounded-xl text-xs font-bold transition select-none shadow-sm cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Sair e Continuar Depois</span>
@@ -695,38 +1062,38 @@ export default function App() {
 
       {/* DRAFT DETECTED MODAL */}
       {showDraftModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-xl overflow-hidden animate-in fade-in duration-200">
-            <div className="p-5 border-b border-slate-100 bg-emerald-50 flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded-lg">
-                <ShieldCheck className="w-5 h-5" />
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl max-w-md w-full border border-slate-200/50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-250">
+            <div className="p-6 border-b border-slate-100 bg-emerald-50/50 flex items-center gap-4">
+              <div className="p-3 bg-emerald-100 text-emerald-800 rounded-2xl shrink-0">
+                <ShieldCheck className="w-5.5 h-5.5" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Recuperação Segura</span>
-                <h3 className="font-bold text-brand-blue text-sm leading-tight">
+                <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">Recuperação Segura</span>
+                <h3 className="font-bold text-brand-blue text-sm leading-tight mt-0.5">
                   Rascunho Encontrado!
                 </h3>
               </div>
             </div>
             
-            <div className="p-5 space-y-3">
-              <p className="text-xs text-slate-600 leading-relaxed">
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-655 leading-relaxed">
                 Identificamos um progresso salvo no navegador em sua última sessão. Deseja restaurar as respostas anteriores e continuar de onde parou?
               </p>
             </div>
 
-            <div className="p-5 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-3">
+            <div className="p-5 bg-slate-50/55 border-t border-slate-100 grid grid-cols-2 gap-3.5">
               <button
                 type="button"
                 onClick={handleDiscardDraft}
-                className="py-2 px-3 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-500 text-center transition"
+                className="py-2.5 px-4 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-600 text-center transition"
               >
                 Descartar rascunho
               </button>
               <button
                 type="button"
                 onClick={handleRestoreDraft}
-                className="py-2 px-3 bg-brand-blue hover:bg-brand-cyan text-white rounded-lg text-xs font-semibold text-center transition shadow-sm animate-pulse"
+                className="py-2.5 px-4 bg-brand-blue hover:bg-brand-cyan text-white rounded-xl text-xs font-bold text-center transition shadow-md shadow-indigo-500/10 animate-pulse-slow"
               >
                 Restaurar e Continuar
               </button>
@@ -737,11 +1104,11 @@ export default function App() {
 
       {/* EXIT CONFIRM MODAL */}
       {showExitModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-xl overflow-hidden animate-in fade-in duration-200">
-            <div className="p-5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-              <div className="p-2.5 bg-brand-cyan/10 text-brand-cyan rounded-lg">
-                <Save className="w-5 h-5" />
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl max-w-md w-full border border-slate-200/50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-250">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center gap-4">
+              <div className="p-3 bg-brand-cyan/10 text-brand-cyan rounded-2xl shrink-0">
+                <Save className="w-5.5 h-5.5" />
               </div>
               <div>
                 <h3 className="font-bold text-brand-blue text-sm leading-tight">
@@ -750,20 +1117,20 @@ export default function App() {
               </div>
             </div>
             
-            <div className="p-5 space-y-3">
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Seu progresso da atualização cadastral foi <strong className="text-brand-blue">salvo automaticamente no navegador</strong>. 
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-slate-655 leading-relaxed">
+                Seu progresso da atualização cadastral foi <strong className="text-brand-blue font-bold">salvo automaticamente no navegador</strong>. 
               </p>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-slate-500 leading-relaxed font-semibold">
                 Você pode fechar com segurança esta aba e, ao retornar ao formulário futuramente usando o mesmo computador e navegador, seu progresso será restaurado integralmente.
               </p>
             </div>
 
-            <div className="p-5 bg-slate-50 border-t border-slate-100 grid grid-cols-2 gap-3">
+            <div className="p-5 bg-slate-50/55 border-t border-slate-100 grid grid-cols-2 gap-3.5">
               <button
                 type="button"
                 onClick={() => setShowExitModal(false)}
-                className="py-2 px-3 border border-slate-200 hover:bg-slate-100 rounded-lg text-xs font-semibold text-slate-500 text-center transition"
+                className="py-2.5 px-4 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-500 text-center transition"
               >
                 Voltar ao preenchimento
               </button>
@@ -773,7 +1140,7 @@ export default function App() {
                   setShowExitModal(false);
                   setCurrentView('home');
                 }}
-                className="py-2 px-3 bg-brand-blue hover:bg-brand-cyan text-white rounded-lg text-xs font-semibold text-center transition shadow-sm"
+                className="py-2.5 px-4 bg-brand-blue hover:bg-brand-cyan text-white rounded-xl text-xs font-bold text-center transition shadow-md"
               >
                 Salvar e Sair
               </button>
@@ -782,15 +1149,66 @@ export default function App() {
         </div>
       )}
 
+      {/* STATUS CHANGE CONFIRM MODAL */}
+      {showStatusConfirmModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl max-w-md w-full border border-slate-200/50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-250">
+            <div className="p-6 border-b border-slate-100 bg-amber-50/50 flex items-center gap-4">
+              <div className="p-3 bg-amber-100 text-amber-800 rounded-2xl shrink-0">
+                <Info className="w-5.5 h-5.5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-brand-blue text-sm leading-tight">
+                  Confirmar Alteração de Situação?
+                </h3>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-4 font-sans">
+              <p className="text-xs text-slate-600 leading-relaxed font-semibold">
+                Algumas perguntas serão adaptadas à nova situação. As respostas já preenchidas serão preservadas.
+              </p>
+            </div>
+
+            <div className="p-5 bg-slate-50/55 border-t border-slate-100 grid grid-cols-2 gap-3.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowStatusConfirmModal(false);
+                  setPendingStatusChange('');
+                }}
+                className="py-2.5 px-4 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-500 text-center transition cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmFormalizationStatusChange}
+                className="py-2.5 px-4 bg-brand-blue hover:bg-brand-cyan text-white rounded-xl text-xs font-bold text-center transition shadow-md cursor-pointer"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MAIN VIEWPORT CARD ROUTING */}
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 mt-6">
+      <main className="flex-1 w-full max-w-5xl mx-auto px-4 mt-2 sm:mt-4">
         
         {/* VIEW 1: HOME PANEL */}
         {currentView === 'home' && (
-          <div className="flex flex-col items-center justify-center py-10">
+          <div className="flex flex-col items-center justify-center py-2 sm:py-4">
             <SearchSection
               organizations={organizations}
-              onSelect={handleSelectOrganization}
+              onSelectOrg={(publicOrg) => {
+                // Load full private data for this org (from the private generated file)
+                const privateOrgs = storageService.getOrganizations();
+                const fullOrg = privateOrgs.find((o: any) => o.id === publicOrg.id);
+                // Merge on top of EMPTY_ORGANIZATION so all fields have safe defaults
+                const safeOrg = { ...EMPTY_ORGANIZATION, ...(fullOrg || publicOrg) };
+                handleSelectOrganization(safeOrg);
+              }}
               onNewRegister={handleStartNewRegisterFlow}
               onHelpNoCnpj={() => setShowHelpNoCnpj(true)}
             />
@@ -799,16 +1217,16 @@ export default function App() {
 
         {/* VIEW 2: ASK FORMALIZATION FOR NEW REGISTER */}
         {currentView === 'formalization_ask' && (
-          <div className="max-w-xl mx-auto bg-white p-8 rounded-2xl border border-slate-200 shadow-md">
-            <div className="flex items-center gap-2 text-brand-blue font-bold text-base border-b border-slate-100 pb-3 mb-4">
-              <Building2 className="w-5 h-5 text-brand-cyan" />
+          <div className="max-w-xl mx-auto bg-white/95 backdrop-blur-md p-8 sm:p-10 rounded-3xl border border-slate-200/50 shadow-2xl animate-in fade-in duration-200">
+            <div className="flex items-center gap-2.5 text-brand-blue font-bold text-base border-b border-slate-100 pb-3.5 mb-4">
+              <Building2 className="w-5.5 h-5.5 text-brand-cyan" />
               <span>Diagnóstico Inicial: Situação da Iniciativa</span>
             </div>
-            <p className="text-xs text-slate-500 mb-5 leading-relaxed">
+            <p className="text-xs text-slate-500 mb-5 leading-relaxed font-semibold">
               Para prepararmos o formulário adequado às suas necessidades tributárias e fiscais, selecione a situação jurídica atual da sua organização ou projeto:
             </p>
 
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {[
                 { value: 'with_cnpj', title: 'Organização com CNPJ próprio', desc: 'Sua associação, instituto ou cooperativa possui registro ativo na Receita Federal.' },
                 { value: 'no_cnpj', title: 'Projeto ou coletivo sem CNPJ', desc: 'Iniciativas comunitárias, grupos artísticos e informais que atuam sem representação jurídica própria.' },
@@ -818,14 +1236,14 @@ export default function App() {
                 <div
                   key={opt.value}
                   onClick={() => handleFormalizationSelect(opt.value as any)}
-                  className="p-4 rounded-xl border border-slate-100 hover:border-brand-cyan hover:bg-blue-50/20 cursor-pointer transition select-none flex items-start gap-3"
+                  className="p-4 rounded-2xl border border-slate-200/80 bg-white hover:border-brand-cyan hover:bg-sky-50/20 cursor-pointer transition-all duration-200 select-none flex items-start gap-3.5 shadow-sm hover:shadow-md hover:scale-[1.01]"
                 >
-                  <div className="w-5 h-5 rounded-full border border-slate-300 shrink-0 mt-0.5 flex items-center justify-center peer-checked:bg-brand-blue text-brand-cyan font-bold text-[11px]">
+                  <div className="w-5 h-5 rounded-full border border-slate-300 shrink-0 mt-0.5 flex items-center justify-center text-brand-cyan text-[10px]">
                     ●
                   </div>
                   <div>
-                    <h3 className="font-bold text-xs text-brand-blue">{opt.title}</h3>
-                    <p className="text-[10px] text-slate-500 mt-0.5 leading-normal">{opt.desc}</p>
+                    <h3 className="font-extrabold text-xs sm:text-sm text-brand-blue">{opt.title}</h3>
+                    <p className="text-[11px] text-slate-500 mt-1 leading-normal font-medium">{opt.desc}</p>
                   </div>
                 </div>
               ))}
@@ -835,7 +1253,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setCurrentView('home')}
-                className="py-1.5 px-4 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50"
+                className="py-2 px-5 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-550 transition"
               >
                 Voltar à busca
               </button>
@@ -845,53 +1263,53 @@ export default function App() {
 
         {/* VIEW 3: HISTORICAL DIAGNOSTIC (PRE-LOADED SUCCESS SUMMARY) */}
         {currentView === 'diagnostic' && originalData && (
-          <div className="max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-md">
+          <div className="max-w-3xl mx-auto bg-white/95 backdrop-blur-md p-6 sm:p-10 rounded-3xl border border-slate-200/50 shadow-2xl animate-in fade-in duration-200">
             <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-5">
-              <div className="p-3 bg-brand-cyan/10 text-brand-cyan rounded-xl shrink-0">
+              <div className="p-3 bg-brand-cyan/10 text-brand-cyan rounded-2xl shrink-0 shadow-sm">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider block">Registros Localizados</span>
-                <h3 className="font-bold text-brand-blue text-base leading-tight">
+                <span className="text-[10px] font-black text-brand-cyan uppercase tracking-wider block">Registros Localizados</span>
+                <h3 className="font-extrabold text-brand-blue text-base leading-tight mt-0.5">
                   {originalData.name}
                 </h3>
               </div>
             </div>
 
             <div className="space-y-6">
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-550 leading-relaxed font-semibold">
                 Carregamos com sucesso o histórico dos dados da sua organização no Recife. Realizamos um diagnóstico prévio da completitude do preenchimento histórico por etapa técnica para facilitar seu trabalho:
               </p>
 
               {/* Dynamic diagnostic stats block */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center select-none shadow-sm">
-                <div className="p-2.5 bg-white rounded-lg border border-slate-100 flex flex-col justify-center">
-                  <span className="text-2xl font-extrabold text-emerald-600">{filledFields}</span>
-                  <span className="text-[10px] text-slate-400 block mt-[-2px]">campos preenchidos</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50/50 p-5 rounded-2xl border border-slate-100 text-center select-none shadow-inner">
+                <div className="p-4 bg-white rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-center">
+                  <span className="text-3xl font-black text-emerald-600 tracking-tight">{filledFields}</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">campos preenchidos</span>
                 </div>
-                <div className="p-2.5 bg-white rounded-lg border border-slate-100 flex flex-col justify-center">
-                  <span className="text-2xl font-extrabold text-amber-600">{totalFields - filledFields}</span>
-                  <span className="text-[10px] text-slate-400 block mt-[-2px]">campos pendentes</span>
+                <div className="p-4 bg-white rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-center">
+                  <span className="text-3xl font-black text-amber-600 tracking-tight">{totalFields - filledFields}</span>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-0.5">campos pendentes</span>
                 </div>
-                <div className="p-2.5 bg-white rounded-lg border border-slate-100 flex flex-col justify-center">
-                  <span className="text-[9px] font-bold uppercase text-brand-cyan tracking-wider block mb-1">Completitude Geral</span>
-                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex">
-                    <div className="bg-brand-cyan h-full transition-all duration-300" style={{ width: `${overallPct}%` }} />
+                <div className="p-4 bg-white rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-center">
+                  <span className="text-[10px] font-black uppercase text-brand-cyan tracking-widest block mb-1.5">Completitude Geral</span>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden flex shadow-inner">
+                    <div className="bg-gradient-to-r from-brand-blue-light to-brand-cyan h-full transition-all duration-550 ease-out" style={{ width: `${overallPct}%` }} />
                   </div>
-                  <span className="text-xs font-bold text-brand-cyan block mt-1">{overallPct}% completo</span>
+                  <span className="text-xs font-black text-brand-cyan block mt-1.5">{overallPct}% completo</span>
                 </div>
               </div>
 
-              {/* VISUAL 'PROGRESS MAP' (GRID OF 10 STEPS) */}
+              {/* VISUAL 'PROGRESS MAP' (9 Etapas) */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold uppercase text-brand-blue tracking-wider block">📊 Mapa Temático de Preenchimento (10 Etapas)</span>
+                  <span className="text-xs font-bold uppercase text-brand-blue tracking-wider block">📊 Mapa Temático de Preenchimento (9 Etapas)</span>
                   <span className="text-[9px] font-bold text-brand-cyan uppercase bg-blue-50 px-2 py-0.5 rounded tracking-wide animate-pulse">
                     Passe o mouse p/ ver pendências • Clique p/ abrir
                   </span>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
                   {stepProgressList.map((stepInfo) => (
                     <button
                       key={stepInfo.step}
@@ -900,7 +1318,7 @@ export default function App() {
                         setCurrentView('form');
                         setCurrentStep(stepInfo.step);
                       }}
-                      className="group relative flex flex-col p-3 rounded-xl border text-left bg-white transition-all duration-150 hover:ring-2 hover:ring-brand-cyan/20 hover:border-brand-cyan shadow-sm select-none cursor-pointer"
+                      className="group relative flex flex-col p-4 rounded-2xl border border-slate-200/80 text-left bg-white transition-all duration-205 hover:border-brand-cyan hover:shadow-md hover:scale-[1.01] select-none cursor-pointer"
                     >
                       <div className="flex justify-between items-start mb-1">
                         <span className="text-[9px] font-extrabold text-slate-400 group-hover:text-brand-cyan uppercase tracking-normal">
@@ -931,7 +1349,7 @@ export default function App() {
                       <div className="mt-auto">
                         <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                           <div 
-                            className={`h-full transition-all duration-300 ${
+                            className={`h-full transition-all duration-350 ${
                               stepInfo.percentage === 100 
                                 ? 'bg-emerald-500' 
                                 : stepInfo.percentage > 0 
@@ -985,11 +1403,11 @@ export default function App() {
               </div>
             </div>
 
-            <div className="mt-8 pt-4 border-t border-slate-100 flex justify-between">
+            <div className="mt-8 pt-5 border-t border-slate-100 flex justify-between">
               <button
                 type="button"
                 onClick={() => setCurrentView('home')}
-                className="py-1.5 px-4 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50"
+                className="py-2 px-5 border border-slate-200 hover:bg-slate-100 rounded-xl text-xs font-bold text-slate-600 transition"
               >
                 Voltar à busca
               </button>
@@ -1001,7 +1419,7 @@ export default function App() {
                   const firstIncomplete = stepProgressList.find(s => s.percentage < 100);
                   setCurrentStep(firstIncomplete ? firstIncomplete.step : 1);
                 }}
-                className="py-2 px-5 bg-brand-blue hover:bg-brand-cyan text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition shadow-sm cursor-pointer"
+                className="py-2.5 px-6 btn-primary text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-md"
               >
                 <span>Acessar formulário</span>
                 <ArrowRight className="w-4 h-4" />
@@ -1034,6 +1452,21 @@ export default function App() {
 
             {/* FORM CONTAINER CARD */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8">
+              
+              {/* Step Validation Errors Alert */}
+              {currentStep < 9 && validationErrors.length > 0 && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl space-y-2">
+                  <div className="flex items-center gap-2 text-red-800 font-bold text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-650" />
+                    <span>Existem campos obrigatórios pendentes nesta etapa:</span>
+                  </div>
+                  <ul className="list-disc list-inside pl-1 text-xs text-red-700 space-y-0.5">
+                    {validationErrors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               
               {/* STEP 1: IDENTIFICATION */}
               {currentStep === 1 && (
@@ -1073,26 +1506,84 @@ export default function App() {
                         { value: 'formalizing', label: 'Em processo de formalização' }
                       ]}
                       value={formData.formalizationStatus}
-                      onChange={(e) => setFormData(prev => ({ ...prev, formalizationStatus: e.target.value as any }))}
+                      onChange={(e) => handleFormalizationStatusChange(e.target.value as any)}
                     />
 
                     {/* Conditional rendering depending on CNPJ status */}
-                    {formData.formalizationStatus === 'with_cnpj' ? (
-                      <InputField
-                        id="cnpj"
-                        label="CNPJ"
-                        required
-                        value={formData.cnpj}
-                        onChange={(e) => setFormData(prev => ({ ...prev, cnpj: CnpjMaskHelper(e.target.value) }))}
-                        placeholder="00.000.000/0000-00"
-                        helpText={badgeForField('cnpj') as any}
-                      />
-                    ) : (
-                      <div className="sm:col-span-1 p-3.5 bg-blue-50/50 border border-brand-cyan/10 rounded-xl flex items-start gap-2.5 text-[11px] leading-relaxed text-slate-800">
+                    {formData.formalizationStatus === 'with_cnpj' && (
+                      <div className="sm:col-span-2 p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3.5">
+                        <span className="text-xs font-bold text-brand-blue block">Informações Jurídicas e Fiscais:</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <InputField
+                            id="cnpj"
+                            label="CNPJ"
+                            required
+                            value={formData.cnpj}
+                            onChange={(e) => setFormData(prev => ({ ...prev, cnpj: CnpjMaskHelper(e.target.value) }))}
+                            placeholder="00.000.000/0000-00"
+                            helpText={badgeForField('cnpj') as any}
+                          />
+                          <SelectField
+                            id="legalNature"
+                            label="Natureza jurídica"
+                            required
+                            options={[
+                              { value: 'Associação privada', label: 'Associação privada' },
+                              { value: 'Fundação privada', label: 'Fundação privada' },
+                              { value: 'Organização religiosa', label: 'Organização religiosa' },
+                              { value: 'Organização da Sociedade Civil (OSC)', label: 'Organização da Sociedade Civil (OSC)' },
+                              { value: 'Cooperativa', label: 'Cooperativa' },
+                              { value: 'Outra', label: 'Outra' }
+                            ]}
+                            value={formData.legalNature}
+                            onChange={(e) => setFormData(prev => ({ ...prev, legalNature: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-xs font-bold text-brand-blue block">Certificações ou Títulos:</span>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {[
+                              { value: 'oscip', label: 'OSCIP' },
+                              { value: 'cebas', label: 'CEBAS' },
+                              { value: 'utilidade_publica_municipal', label: 'Utilidade Pública Municipal' },
+                              { value: 'utilidade_publica_estadual', label: 'Utilidade Pública Estadual' },
+                              { value: 'utilidade_publica_federal', label: 'Utilidade Pública Federal' }
+                            ].map((cert) => {
+                              const isChecked = formData.certifications?.includes(cert.value);
+                              return (
+                                <label key={cert.value} className="flex items-center gap-2 text-xs py-1.5 px-3 bg-white border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-100 transition">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked || false}
+                                    onChange={() => {
+                                      const list = [...(formData.certifications || [])];
+                                      const updated = list.includes(cert.value) ? list.filter(i => i !== cert.value) : [...list, cert.value];
+                                      setFormData(prev => ({ ...prev, certifications: updated }));
+                                    }}
+                                    className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                                  />
+                                  <span className="text-slate-700 font-semibold">{cert.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          <InputField
+                            id="certificationsOther"
+                            label="Outras certificações / títulos"
+                            value={formData.certificationsOther || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, certificationsOther: e.target.value }))}
+                            placeholder="Caso possua outras, descreva aqui"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {formData.formalizationStatus === 'no_cnpj' && (
+                      <div className="sm:col-span-2 p-3.5 bg-blue-50/50 border border-brand-cyan/10 rounded-xl flex items-start gap-2.5 text-[11px] leading-relaxed text-slate-800">
                         <span>ℹ️</span>
                         <div>
-                          <p className="font-bold text-brand-blue">Iniciativas e Coletivos sem CNPJ:</p>
-                          <p className="text-[10px] text-brand-text-sub">Fique tranquilo(a)! O Bora Impactar apoia e fomenta coletivos, cooperativas informais e projetos em formalização. O número fiscal de cadastro foi omitido automaticamente.</p>
+                          <p className="font-bold text-brand-blue">Projetos e coletivos sem CNPJ:</p>
+                          <p className="text-[10px] text-brand-text-sub font-medium">Projetos e coletivos sem CNPJ também podem participar. As perguntas serão adaptadas à realidade da sua iniciativa.</p>
                         </div>
                       </div>
                     )}
@@ -1104,17 +1595,119 @@ export default function App() {
                           <InputField
                             id="parentOrgName"
                             label="Nome da organização responsável vinculada"
+                            required
                             value={formData.parentOrgName || ''}
                             onChange={(e) => setFormData(prev => ({ ...prev, parentOrgName: e.target.value }))}
                           />
                           <InputField
                             id="parentOrgCnpj"
                             label="CNPJ da organização parceira"
+                            required
                             value={formData.parentOrgCnpj || ''}
                             onChange={(e) => setFormData(prev => ({ ...prev, parentOrgCnpj: CnpjMaskHelper(e.target.value) }))}
                             placeholder="00.000.000/0000-00"
                           />
+                          <InputField
+                            id="parentOrgRelationType"
+                            label="Tipo de vínculo (ex: termo de parceria, filiação, abrigo legal)"
+                            required
+                            value={formData.parentOrgRelationType || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, parentOrgRelationType: e.target.value }))}
+                          />
+                          <InputField
+                            id="parentOrgRep"
+                            label="Responsável pelo vínculo na organização"
+                            required
+                            value={formData.parentOrgRep || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, parentOrgRep: e.target.value }))}
+                          />
+                          <InputField
+                            id="parentOrgContact"
+                            label="Contato da organização responsável (e-mail/telefone)"
+                            required
+                            value={formData.parentOrgContact || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, parentOrgContact: e.target.value }))}
+                          />
+                          <SelectField
+                            id="parentOrgReceivesDonations"
+                            label="Quem recebe recursos e doações?"
+                            required
+                            options={[
+                              { value: 'parent_org', label: 'A organização responsável' },
+                              { value: 'project', label: 'O próprio projeto' },
+                              { value: 'both', label: 'Ambos' }
+                            ]}
+                            value={formData.parentOrgReceivesDonations || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, parentOrgReceivesDonations: e.target.value }))}
+                          />
+                          <SelectField
+                            id="parentOrgEmitsReceipts"
+                            label="Quem emite recibos ou documentos?"
+                            required
+                            options={[
+                              { value: 'parent_org', label: 'A organização responsável' },
+                              { value: 'project', label: 'O próprio projeto' },
+                              { value: 'not_applicable', label: 'Não se aplica' }
+                            ]}
+                            value={formData.parentOrgEmitsReceipts || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, parentOrgEmitsReceipts: e.target.value }))}
+                          />
+                          <SelectField
+                            id="parentOrgReportingResponsible"
+                            label="Quem responde pela prestação de contas?"
+                            required
+                            options={[
+                              { value: 'parent_org', label: 'A organização responsável' },
+                              { value: 'project', label: 'O próprio projeto' },
+                              { value: 'both', label: 'Ambos' }
+                            ]}
+                            value={formData.parentOrgReportingResponsible || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, parentOrgReportingResponsible: e.target.value }))}
+                          />
                         </div>
+                      </div>
+                    )}
+
+                    {formData.formalizationStatus === 'formalizing' && (
+                      <div className="sm:col-span-2 p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3.5">
+                        <span className="text-xs font-bold text-brand-blue block">Informações sobre a Formalização:</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <InputField
+                            id="formalizationExpectedDate"
+                            label="Previsão de formalização (mês/ano ou data)"
+                            required
+                            value={formData.formalizationExpectedDate || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, formalizationExpectedDate: e.target.value }))}
+                            placeholder="Ex: Dezembro de 2026"
+                          />
+                          <InputField
+                            id="formalizationStage"
+                            label="Etapa atual do processo"
+                            required
+                            value={formData.formalizationStage || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, formalizationStage: e.target.value }))}
+                            placeholder="Ex: Elaboração de estatuto, registro em cartório"
+                          />
+                          <SelectField
+                            id="formalizationHasSupport"
+                            label="Possui apoio jurídico ou contábil?"
+                            required
+                            options={[
+                              { value: 'sim', label: 'Sim' },
+                              { value: 'nao', label: 'Não' },
+                              { value: 'em_construcao', label: 'Em construção' }
+                            ]}
+                            value={formData.formalizationHasSupport || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, formalizationHasSupport: e.target.value as any }))}
+                          />
+                        </div>
+                        <TextAreaField
+                          id="formalizationNeeds"
+                          label="Principais necessidades para concluir a formalização"
+                          value={formData.formalizationNeeds || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, formalizationNeeds: e.target.value }))}
+                          placeholder="Descreva o que falta ou de qual apoio vocês precisam (ex: custos cartoriais, orientação de advogado)..."
+                        />
                       </div>
                     )}
 
@@ -1388,6 +1981,79 @@ export default function App() {
                         value={formData.city}
                         disabled
                       />
+                      
+                      <div className="sm:col-span-3 border-t border-slate-100 pt-4 space-y-3">
+                        <label className="text-xs sm:text-sm font-bold text-brand-blue block">
+                          Cidades onde atua: *
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {['Recife', 'Olinda', 'Jaboatão dos Guararapes', 'Paulista', 'Outra'].map((item) => {
+                            const isChecked = formData.citiesOfActivity?.includes(item);
+                            return (
+                              <label key={item} className="flex items-center gap-2 text-xs py-1.5 px-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked || false}
+                                  onChange={() => {
+                                    const list = [...(formData.citiesOfActivity || [])];
+                                    const updated = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
+                                    setFormData(prev => ({ ...prev, citiesOfActivity: updated }));
+                                  }}
+                                  className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                                />
+                                <span className="text-slate-700 font-semibold">{item}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-3 space-y-3">
+                        <label className="text-xs sm:text-sm font-bold text-brand-blue block">
+                          Bairros do Recife onde atua: *
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Buscar bairro..."
+                            value={neighborhoodSearch}
+                            onChange={(e) => setNeighborhoodSearch(e.target.value)}
+                            className="w-full bg-white border border-slate-200 text-xs rounded-lg p-2 focus:ring-1 focus:ring-brand-cyan"
+                          />
+                          {neighborhoodSearch && (
+                            <button
+                              type="button"
+                              onClick={() => setNeighborhoodSearch('')}
+                              className="text-xs font-bold text-brand-cyan hover:underline"
+                            >
+                              Limpar
+                            </button>
+                          )}
+                        </div>
+                        <div className="border border-slate-200/80 rounded-xl p-3 bg-white max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 shadow-inner">
+                          {LIST_OF_NEIGHBORHOODS.filter(n => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(neighborhoodSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))).map((item) => {
+                            const isChecked = formData.neighborhoodsOfActivity?.includes(item);
+                            return (
+                              <label key={item} className="flex items-center gap-2 text-xs py-1 px-2 hover:bg-slate-50 rounded transition cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked || false}
+                                  onChange={() => {
+                                    const list = [...(formData.neighborhoodsOfActivity || [])];
+                                    const updated = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
+                                    setFormData(prev => ({ ...prev, neighborhoodsOfActivity: updated }));
+                                  }}
+                                  className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                                />
+                                <span className="text-slate-650 font-medium">{item}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <span className="text-[10px] text-slate-400 block italic">
+                          Selecionados ({formData.neighborhoodsOfActivity?.length || 0}): {formData.neighborhoodsOfActivity?.join(', ') || 'Nenhum bairro selecionado'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1793,9 +2459,176 @@ export default function App() {
                         { value: 'no_indicators', label: 'Ainda não possuímos indicadores definidos' },
                         { value: 'needs_support', label: 'Precisamos de suporte, apoio ou mentorias para mensurar impacto' }
                       ]}
-                      value={formData.indicatorStatus}
-                      onChange={(e) => setFormData(prev => ({ ...prev, indicatorStatus: e.target.value as any }))}
                     />
+                  </div>
+
+                  <div className="space-y-4 border-t border-slate-100 pt-5">
+                    <TextAreaField
+                      id="mainResultsSummary"
+                      label={formData.formalizationStatus === 'no_cnpj' 
+                        ? 'Quais mudanças ou resultados vocês perceberam no último ano? *' 
+                        : 'Resumo dos principais resultados alcançados *'
+                      }
+                      value={formData.mainResultsSummary || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, mainResultsSummary: e.target.value }))}
+                      placeholder={formData.formalizationStatus === 'no_cnpj'
+                        ? 'Fale sobre o impacto prático na vida dos participantes (ex: melhora na autoestima, aprendizado de novas tarefas, integração da vizinhança)...'
+                        : 'Descreva de forma estruturada os resultados obtidos (quantitativos e qualitativos) no último ciclo...'
+                      }
+                      required
+                    />
+
+                    <TextAreaField
+                      id="beneficiaryProfile"
+                      label="Perfil detalhado dos beneficiários atendidos *"
+                      value={formData.beneficiaryProfile || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, beneficiaryProfile: e.target.value }))}
+                      placeholder="Ex: Jovens de 15 a 24 anos, residentes de bairros periféricos, em situação de vulnerabilidade social ou desemprego..."
+                      required
+                    />
+
+                    {/* Conditional fields based on CNPJ status */}
+                    {formData.formalizationStatus !== 'no_cnpj' ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <TextAreaField
+                          id="indicators"
+                          label="Quais indicadores vocês utilizam para monitorar as atividades?"
+                          value={formData.indicators || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, indicators: e.target.value }))}
+                          placeholder="Ex: Taxa de evasão escolar, média de notas, índice de empregabilidade após os cursos..."
+                          className="sm:col-span-2"
+                        />
+                        <TextAreaField
+                          id="resultsTrackingMethod"
+                          label="Como os resultados são medidos (metodologia de avaliação)?"
+                          value={formData.resultsTrackingMethod || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, resultsTrackingMethod: e.target.value }))}
+                          placeholder="Ex: Aplicação de questionários pré e pós-projeto, entrevistas qualitativas com familiares, avaliações bimestrais..."
+                          className="sm:col-span-2"
+                        />
+                        <SelectField
+                          id="evaluationFrequency"
+                          label="Frequência de avaliação dos resultados"
+                          options={[
+                            { value: 'mensal', label: 'Mensal' },
+                            { value: 'trimestral', label: 'Trimestral' },
+                            { value: 'semestral', label: 'Semestral' },
+                            { value: 'anual', label: 'Anual' },
+                            { value: 'outra', label: 'Outra / Não se aplica' }
+                          ]}
+                          value={formData.evaluationFrequency || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, evaluationFrequency: e.target.value }))}
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        <label className="text-xs sm:text-sm font-bold text-brand-blue block">
+                          Como vocês acompanham ou percebem os resultados das atividades? *
+                        </label>
+                        <p className="text-[10px] text-slate-500">Selecione todas as formas aplicáveis ao dia a dia do seu projeto:</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {[
+                            'Lista de presença',
+                            'Registro de atendimentos',
+                            'Fotografias',
+                            'Relatos dos participantes',
+                            'Depoimentos',
+                            'Acompanhamento da equipe',
+                            'Observação informal',
+                            'Ainda não realizamos esse acompanhamento',
+                            'Precisamos de apoio para melhorar essa área',
+                            'Outro'
+                          ].map((item) => {
+                            const isChecked = formData.resultsTrackingMethodsInformal?.includes(item);
+                            return (
+                              <label key={item} className="flex items-center gap-2 text-xs py-1.5 px-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked || false}
+                                  onChange={() => {
+                                    const list = [...(formData.resultsTrackingMethodsInformal || [])];
+                                    const updated = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
+                                    setFormData(prev => ({ ...prev, resultsTrackingMethodsInformal: updated }));
+                                  }}
+                                  className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                                />
+                                <span className="text-slate-700 font-semibold">{item}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Metas section */}
+                  <div className="border-t border-slate-100 pt-5 space-y-4">
+                    <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">🎯 Planejamento e Metas Futuras</span>
+                    <div className="space-y-4">
+                      <TextAreaField
+                        id="goalsNext12Months"
+                        label="Meta de curto prazo — próximos 12 meses *"
+                        value={formData.goalsNext12Months || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, goalsNext12Months: e.target.value }))}
+                        placeholder="Ex: Formar 3 turmas novas de capacitação profissional e atingir 90 alunos..."
+                        required={formData.formalizationStatus !== 'no_cnpj'}
+                      />
+                      <TextAreaField
+                        id="goalsMediumTerm"
+                        label="Meta de médio prazo — de 1 a 3 anos (Opcional)"
+                        value={formData.goalsMediumTerm || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, goalsMediumTerm: e.target.value }))}
+                        placeholder="Ex: Ampliar as atividades para mais dois bairros e contratar um professor permanente..."
+                      />
+                      <TextAreaField
+                        id="goalsLongTerm"
+                        label="Meta de longo prazo — mais de 3 anos (Opcional)"
+                        value={formData.goalsLongTerm || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, goalsLongTerm: e.target.value }))}
+                        placeholder="Ex: Construir sede própria da associação e atender mais de 500 famílias por ano..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reports and Testimonials switches */}
+                  <div className="border-t border-slate-100 pt-5 space-y-4">
+                    <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">📄 Relatórios e Evidências</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {formData.formalizationStatus !== 'no_cnpj' && (
+                        <>
+                          <YesNoField
+                            id="hasActivityReport"
+                            label="Possui relatório de atividades público e atualizado?"
+                            value={formData.hasActivityReport}
+                            onChange={(val) => setFormData(prev => ({ ...prev, hasActivityReport: val === 'sim' }))}
+                            required
+                          />
+                          <YesNoField
+                            id="hasImpactReport"
+                            label="Possui relatório de impacto social publicado?"
+                            value={formData.hasImpactReport}
+                            onChange={(val) => setFormData(prev => ({ ...prev, hasImpactReport: val === 'sim' }))}
+                            required
+                          />
+                        </>
+                      )}
+                      <YesNoField
+                        id="hasTestimonials"
+                        label="Possui depoimentos ou casos de sucesso registrados?"
+                        value={formData.hasTestimonials}
+                        onChange={(val) => setFormData(prev => ({ ...prev, hasTestimonials: val === 'sim' }))}
+                        required
+                      />
+                      {(formData.hasTestimonials === true || formData.hasTestimonials === 'sim') && (
+                        <YesNoField
+                          id="authorizeTestimonialsPublishing"
+                          label="Autoriza a divulgação desses depoimentos e casos de sucesso?"
+                          value={formData.authorizeTestimonialsPublishing}
+                          onChange={(val) => setFormData(prev => ({ ...prev, authorizeTestimonialsPublishing: val === 'sim' }))}
+                          required
+                        />
+                      )}
+                    </div>
                   </div>
 
                   {/* Results Sub-form List up to 3 */}
@@ -1906,37 +2739,48 @@ export default function App() {
                     />
                   </div>
 
-                  {/* Operational details switches with Three-State YesNoField Component */}
-                  <div className="border-t border-slate-100 pt-5 space-y-4">
-                    <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">Regularização Comercial e Fiscal</span>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <YesNoField
-                        id="hasInstitutionalBankInstAccount"
-                        label="Possui conta bancária jurídica com CNPJ da própria organização?"
-                        value={formData.hasInstitutionalBankInstAccount}
-                        onChange={(val) => setFormData(prev => ({ ...prev, hasInstitutionalBankInstAccount: val }))}
-                        required
-                        helpText={badgeForField('hasInstitutionalBankInstAccount') as any}
-                      />
+                  {/* Operational details switches — hidden for no_cnpj */}
+                  {formData.formalizationStatus !== 'no_cnpj' && (
+                    <div className="border-t border-slate-100 pt-5 space-y-4">
+                      <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">Regularização Comercial e Fiscal</span>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <YesNoField
+                          id="hasInstitutionalBankInstAccount"
+                          label="Possui conta bancária jurídica com CNPJ da própria organização?"
+                          value={formData.hasInstitutionalBankInstAccount}
+                          onChange={(val) => setFormData(prev => ({ ...prev, hasInstitutionalBankInstAccount: val }))}
+                          required
+                          helpText={badgeForField('hasInstitutionalBankInstAccount') as any}
+                        />
 
-                      <YesNoField
-                        id="canReceiveCorporateDonations"
-                        label="Pode receber repasses ou doações diretas de empresas privadas?"
-                        value={formData.canReceiveCorporateDonations}
-                        onChange={(val) => setFormData(prev => ({ ...prev, canReceiveCorporateDonations: val }))}
-                        required
-                        helpText={badgeForField('canReceiveCorporateDonations') as any}
-                      />
+                        <YesNoField
+                          id="canReceiveCorporateDonations"
+                          label="Pode receber repasses ou doações diretas de empresas privadas?"
+                          value={formData.canReceiveCorporateDonations}
+                          onChange={(val) => setFormData(prev => ({ ...prev, canReceiveCorporateDonations: val }))}
+                          required
+                          helpText={badgeForField('canReceiveCorporateDonations') as any}
+                        />
 
-                      <YesNoField
-                        id="hasApprovedIncentiveProject"
-                        label="Possui projeto atualmente aprovado em lei de incentivo fiscal?"
-                        value={formData.hasApprovedIncentiveProject}
-                        onChange={(val) => setFormData(prev => ({ ...prev, hasApprovedIncentiveProject: val }))}
-                        helpText={badgeForField('hasApprovedIncentiveProject') as any}
-                      />
+                        <YesNoField
+                          id="hasApprovedIncentiveProject"
+                          label="Possui projeto atualmente aprovado em lei de incentivo fiscal?"
+                          value={formData.hasApprovedIncentiveProject}
+                          onChange={(val) => setFormData(prev => ({ ...prev, hasApprovedIncentiveProject: val }))}
+                          helpText={badgeForField('hasApprovedIncentiveProject') as any}
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {/* For no_cnpj: simplified info block about donations */}
+                  {formData.formalizationStatus === 'no_cnpj' && (
+                    <div className="border-t border-slate-100 pt-5">
+                      <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl text-[11px] text-blue-800 leading-relaxed">
+                        💡 <strong>Recursos financeiros:</strong> Projetos sem CNPJ podem receber apoios via organizações parceiras ou por meio de contas bancárias de integrantes responsáveis. Caso queiram se organizar melhor, nossa equipe pode orientar sobre opções de formalização gradual.
+                      </div>
+                    </div>
+                  )}
 
                   {/* Opportunities inside Step 7 */}
                   <div className="border-t border-slate-100 pt-5 space-y-4">
@@ -2072,26 +2916,29 @@ export default function App() {
                 </div>
               )}
 
-              {/* STEP 8: MATTACHMENTS SIMULATED UPLOADS (FORMERLY STEP 9) */}
+              {/* STEP 8: MATERIAIS E UPLOADS SIMULADOS */}
               {currentStep === 8 && (
                 <div className="space-y-6">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs text-brand-text-sub leading-normal">
-                    📁 <strong>Introdução desta etapa:</strong> Faça o upload demonstrativo de mídias auxiliares e documentos institucionais da organização para que a equipe do Bora Impactar possa fundamentar e certificar seu cadastro.
+                    📁 <strong>Introdução desta etapa:</strong> Faça o upload demonstrativo de mídias auxiliares e documentos da organização para que a equipe do Bora Impactar possa fundamentar seu cadastro.
                   </div>
 
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
                     <p className="text-[11px] text-amber-800 leading-normal font-semibold">
-                      📝 <strong>Atenção ao Protótipo:</strong> Nesta primeira versão, o upload de documentos e arquivos é apenas visual e simulado sem armazenamentos.
+                      📝 <strong>Atenção ao Protótipo:</strong> Nesta primeira versão, o upload de documentos e arquivos é apenas visual e simulado, sem armazenamento real.
                     </p>
                   </div>
 
+                  {/* Uploads — logo and presentation for all, annual report and bylaws only for formal orgs */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 select-none">
                     {[
-                      { key: 'logo', label: 'Logomarca oficial da Organização' },
-                      { key: 'presentation', label: 'Apresentação institucional (.pdf ou .ppt)' },
-                      { key: 'annualReport', label: 'Relatório de Atividades dos últimos 12 meses' },
-                      { key: 'bylawsFile', label: 'Estatuto original ou Ata de fundação' }
-                    ].map((item) => {
+                      { key: 'logo', label: 'Logomarca oficial da Organização', forAll: true },
+                      { key: 'presentation', label: 'Apresentação institucional (.pdf ou .ppt)', forAll: true },
+                      { key: 'annualReport', label: 'Relatório de Atividades dos últimos 12 meses', forAll: false },
+                      { key: 'bylawsFile', label: 'Estatuto original ou Ata de fundação', forAll: false }
+                    ]
+                    .filter(item => item.forAll || formData.formalizationStatus !== 'no_cnpj')
+                    .map((item) => {
                       const uploadedName = formData.simulatedFiles?.[item.key as keyof OrganizationData['simulatedFiles']];
                       return (
                         <div key={item.key} className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2 flex justify-between items-center">
@@ -2103,7 +2950,6 @@ export default function App() {
                               <span className="text-[10px] text-slate-400 block mt-1">Upload pendente...</span>
                             )}
                           </div>
-                          
                           <button
                             type="button"
                             onClick={() => simulateFileUpload(item.key as any, `simulado_${item.key}_${Date.now().toString().substring(8)}.pdf`)}
@@ -2123,6 +2969,29 @@ export default function App() {
                         onChange={(e) => setFormData(prev => ({ ...prev, institutionalVideoLink: e.target.value }))}
                         placeholder="https://youtube.com/watch?v=..."
                       />
+                    </div>
+                  </div>
+
+                  {/* Authorization fields */}
+                  <div className="border-t border-slate-100 pt-5 space-y-4">
+                    <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">🖼️ Autorizações de Uso de Imagem e Dados</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <YesNoField
+                        id="photosAuthorization"
+                        label="Autoriza o uso das imagens e fotos enviadas para divulgação no catálogo Bora Impactar?"
+                        value={formData.photosAuthorization}
+                        onChange={(val) => setFormData(prev => ({ ...prev, photosAuthorization: val === 'sim' }))}
+                        required
+                      />
+                      {formData.formalizationStatus !== 'no_cnpj' && (
+                        <YesNoField
+                          id="documentsReviewAuthorization"
+                          label="Autoriza a equipe técnica do Bora Impactar a revisar os documentos institucionais enviados?"
+                          value={formData.documentsReviewAuthorization}
+                          onChange={(val) => setFormData(prev => ({ ...prev, documentsReviewAuthorization: val === 'sim' }))}
+                          required
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2344,20 +3213,7 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 6: ADMINISTRATIVE MONITORING PANEL */}
-        {currentView === 'admin' && (
-          <AdminPanel
-            onBack={() => {
-              setCurrentView('home');
-              window.scrollTo(0, 0);
-            }}
-            organizations={organizations}
-            onRefreshList={() => {
-              const list = storageService.getOrganizations();
-              setOrganizations(list);
-            }}
-          />
-        )}
+
 
       </main>
 

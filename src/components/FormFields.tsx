@@ -94,28 +94,28 @@ export const InputField: React.FC<InputFieldProps> = ({
 }) => {
   return (
     <div className={`flex flex-col w-full ${className}`}>
-      <label htmlFor={id} className="text-sm font-semibold text-brand-blue mb-1 inline-flex items-center flex-wrap gap-1">
+      <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
         <span>{label}</span>
         {required && <span className="text-color-error" aria-hidden="true">*</span>}
         {fillingTip && <FillingTipTooltip tip={fillingTip} />}
       </label>
       
-      {helpText && <p className="text-xs text-brand-cyan mb-1">{helpText}</p>}
+      {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
       
       <div className="relative">
         {icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
             {icon}
           </div>
         )}
         <input
           id={id}
-          className={`w-full px-4 py-2.5 rounded-lg border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan focus:border-transparent ${
-            icon ? 'pl-10' : ''
+          className={`w-full px-4 py-3 rounded-xl border text-sm bg-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan ${
+            icon ? 'pl-11' : ''
           } ${
             error 
-              ? 'border-red-500 focus:ring-red-500 text-red-900' 
-              : 'border-slate-200 outline-none hover:border-slate-300'
+              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500 text-red-900' 
+              : 'border-slate-200/80 hover:border-slate-350'
           }`}
           required={required}
           aria-invalid={!!error}
@@ -125,14 +125,14 @@ export const InputField: React.FC<InputFieldProps> = ({
       </div>
 
       {exampleText && (
-        <span className="text-xs text-gray-400 italic mt-1">
+        <span className="text-xs text-slate-400 italic mt-1.5 pl-1">
           Exemplo: {exampleText}
         </span>
       )}
 
       {error && (
-        <span id={`${id}-error`} className="text-xs text-red-600 mt-1 flex items-center gap-1 font-medium">
-          <AlertCircle className="w-3.5 h-3.5" />
+        <span id={`${id}-error`} className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
+          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
           {error}
         </span>
       )}
@@ -163,31 +163,31 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
 
   return (
     <div className={`flex flex-col w-full ${className}`}>
-      <div className="flex justify-between items-baseline mb-1">
-        <label htmlFor={id} className="text-sm font-semibold text-brand-blue inline-flex items-center flex-wrap gap-1">
+      <div className="flex justify-between items-baseline mb-1.5">
+        <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue inline-flex items-center flex-wrap gap-1">
           <span>{label}</span>
           {required && <span className="text-color-error" aria-hidden="true">*</span>}
           {fillingTip && <FillingTipTooltip tip={fillingTip} />}
         </label>
         
         {maxLength && (
-          <span className="text-[11px] font-mono text-gray-400">
+          <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
             {charCount}/{maxLength}
           </span>
         )}
       </div>
 
-      {helpText && <p className="text-xs text-brand-cyan mb-1">{helpText}</p>}
+      {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
 
       <div className="relative">
         <textarea
           id={id}
-          rows={3}
+          rows={3.5}
           maxLength={maxLength}
-          className={`w-full px-4 py-2.5 rounded-lg border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan focus:border-transparent resize-y ${
+          className={`w-full px-4 py-3 rounded-xl border text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan resize-y ${
             error 
-              ? 'border-red-500 focus:ring-red-500' 
-              : 'border-slate-200 hover:border-slate-300'
+              ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+              : 'border-slate-200/80 hover:border-slate-350'
           }`}
           required={required}
           value={value}
@@ -198,25 +198,25 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
         {onAiImproveClick && charCount > 10 && (
           <button
             type="button"
-            onClick={onAiImproveClick}
-            className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-brand-blue bg-blue-50 border border-blue-200 rounded-md hover:bg-brand-cyan hover:text-white transition duration-200 shadow-sm"
-            title="Clique para que a IA ajude a formular seu texto com base somente nas suas ideias"
+            className="absolute bottom-3.5 right-3.5 flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-400 bg-slate-50 border border-slate-250 rounded-lg cursor-not-allowed select-none"
+            title="Recurso de IA disponível em breve"
+            disabled
           >
             <Sparkles className="w-3.5 h-3.5 shrink-0" />
-            <span>Melhorar texto</span>
+            <span>IA: Disponível em breve</span>
           </button>
         )}
       </div>
 
       {exampleText && (
-        <span className="text-xs bg-slate-50 text-gray-500 p-2.5 rounded-md border border-dashed border-slate-200 italic mt-1.5 leading-relaxed">
+        <span className="text-xs bg-slate-50/70 text-slate-600 p-3 rounded-xl border border-dashed border-slate-200 italic mt-2 leading-relaxed block pl-3">
           💡 <strong>Exemplo recomendado:</strong> "{exampleText}"
         </span>
       )}
 
       {error && (
-        <span className="text-xs text-red-600 mt-1 flex items-center gap-1">
-          <AlertCircle className="w-3.5 h-3.5" />
+        <span className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
+          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
           {error}
         </span>
       )}
@@ -243,21 +243,21 @@ export const SelectField: React.FC<SelectFieldProps> = ({
 }) => {
   return (
     <div className={`flex flex-col w-full ${className}`}>
-      <label htmlFor={id} className="text-sm font-semibold text-brand-blue mb-1 inline-flex items-center flex-wrap gap-1">
+      <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
         <span>{label}</span>
         {required && <span className="text-color-error" aria-hidden="true">*</span>}
         {fillingTip && <FillingTipTooltip tip={fillingTip} />}
       </label>
 
-      {helpText && <p className="text-xs text-brand-cyan mb-1">{helpText}</p>}
+      {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
 
       <select
         id={id}
         value={value}
-        className={`w-full px-4 py-2.5 rounded-lg border text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan focus:border-transparent ${
+        className={`w-full px-4 py-3 rounded-xl border text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan cursor-pointer ${
           error 
-            ? 'border-red-500 focus:ring-red-500' 
-            : 'border-slate-200 hover:border-slate-300'
+            ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+            : 'border-slate-200/80 hover:border-slate-350'
         }`}
         required={required}
         {...props as any}
@@ -271,8 +271,8 @@ export const SelectField: React.FC<SelectFieldProps> = ({
       </select>
 
       {error && (
-        <span className="text-xs text-red-600 mt-1 flex items-center gap-1 font-medium">
-          <AlertCircle className="w-3.5 h-3.5" />
+        <span className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
+          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
           {error}
         </span>
       )}
@@ -287,31 +287,125 @@ export const ProgressBar: React.FC<{
 }> = ({ currentStep, totalSteps, stepName }) => {
   const percentage = Math.round((currentStep / totalSteps) * 100);
 
+  const stepLabels = [
+    'Identificação',
+    'Contatos',
+    'Sobre',
+    'Público',
+    'Impacto',
+    'ODS/ESG',
+    'Recursos',
+    'Materiais',
+    'Revisão'
+  ];
+
   return (
-    <div className="w-full bg-white border border-slate-100 rounded-xl p-4 shadow-sm select-none">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
-        <div>
-          <span className="text-xs font-semibold text-brand-cyan uppercase tracking-normal">
+    <div className="w-full bg-white/90 backdrop-blur-md border border-slate-200/60 rounded-2xl p-5 sm:p-6 shadow-sm select-none">
+      {/* Mobile Compact Progress Bar */}
+      <div className="flex sm:hidden items-center justify-between gap-3">
+        <div className="flex-1">
+          <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider block">
             Etapa {currentStep} de {totalSteps}
           </span>
-          <h2 className="text-base font-bold text-brand-blue">
+          <h2 className="text-sm font-extrabold text-brand-blue tracking-tight leading-tight mt-0.5">
             {stepName}
           </h2>
         </div>
-        <div className="shrink-0 text-right">
-          <span className="text-lg font-extrabold text-brand-blue">
-            {percentage}%
-          </span>
-          <span className="text-xs text-gray-400 block mt-[-4px]">concluído</span>
+        <div className="relative w-12 h-12 flex items-center justify-center shrink-0">
+          <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+            <path
+              className="text-slate-100"
+              strokeWidth="3.5"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+            <path
+              className="text-brand-cyan transition-all duration-500 ease-out"
+              strokeWidth="3.8"
+              strokeDasharray={`${percentage}, 100`}
+              strokeLinecap="round"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+          </svg>
+          <span className="absolute text-[10px] font-black text-brand-blue">{percentage}%</span>
         </div>
       </div>
-      
-      {/* Outer shell progress line */}
-      <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-        <div 
-          className="bg-brand-cyan h-full rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${percentage}%` }}
-        />
+
+      {/* Desktop/Tablet Stepper Map */}
+      <div className="hidden sm:block space-y-5">
+        <div className="flex justify-between items-center">
+          <div>
+            <span className="text-[10px] font-bold text-brand-cyan uppercase tracking-wider block">
+              Progresso do Cadastro
+            </span>
+            <h2 className="text-lg font-extrabold text-brand-blue tracking-tight mt-0.5">
+              {stepName}
+            </h2>
+          </div>
+          <div className="text-right">
+            <span className="text-2xl font-black text-brand-blue tracking-tight">
+              {percentage}%
+            </span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-[-4px]">Preenchido</span>
+          </div>
+        </div>
+
+        {/* Connecting Line Tracker */}
+        <div className="relative flex items-center justify-between mt-6 px-1">
+          {/* Gray Background Line */}
+          <div className="absolute left-0 right-0 h-0.5 bg-slate-100 rounded-full z-0" />
+          {/* Active Highlighted Line */}
+          <div 
+            className="absolute left-0 h-0.5 bg-gradient-to-r from-brand-blue-light to-brand-cyan rounded-full z-0 transition-all duration-500 ease-out"
+            style={{ width: `${Math.max(0, Math.min(100, ((currentStep - 1) / (totalSteps - 1)) * 100))}%` }}
+          />
+
+          {stepLabels.map((label, index) => {
+            const stepNum = index + 1;
+            const isCompleted = stepNum < currentStep;
+            const isActive = stepNum === currentStep;
+            
+            return (
+              <div key={index} className="flex flex-col items-center relative z-10">
+                <div 
+                  className={`w-8.5 h-8.5 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
+                    isCompleted 
+                      ? 'bg-emerald-500 text-white border-2 border-emerald-500 shadow-md shadow-emerald-500/10' 
+                      : isActive 
+                        ? 'bg-white text-brand-cyan border-2 border-brand-cyan shadow-lg shadow-sky-500/15 ring-4 ring-sky-500/10 scale-110 font-extrabold' 
+                        : 'bg-white text-slate-400 border-2 border-slate-200 hover:border-slate-350'
+                  }`}
+                  title={`${stepNum}. ${label}`}
+                >
+                  {isCompleted ? (
+                    <svg className="w-4 h-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    stepNum
+                  )}
+                </div>
+                {/* Tiny step label */}
+                <span 
+                  className={`text-[9px] font-bold mt-2 select-none transition-colors duration-200 whitespace-nowrap absolute top-full ${
+                    isActive 
+                      ? 'text-brand-cyan font-black' 
+                      : isCompleted 
+                        ? 'text-slate-500' 
+                        : 'text-slate-400'
+                  }`}
+                >
+                  {label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        {/* Padding spacer to account for absolute labels */}
+        <div className="h-2" />
       </div>
     </div>
   );
@@ -360,8 +454,8 @@ interface YesNoFieldProps {
   id: string;
   label: string;
   required?: boolean;
-  value: boolean | null | undefined;
-  onChange: (val: boolean) => void;
+  value: boolean | 'sim' | 'nao' | null | undefined | '';
+  onChange: (val: 'sim' | 'nao') => void;
   helpText?: string;
   exampleText?: string;
   error?: string;
@@ -378,33 +472,34 @@ export const YesNoField: React.FC<YesNoFieldProps> = ({
   error,
 }) => {
   return (
-    <div className="flex flex-col w-full">
-      <label className="text-sm font-semibold text-brand-blue mb-1 inline-flex items-center flex-wrap gap-1">
+    <div className="flex flex-col w-full font-sans">
+      <label className="text-xs sm:text-sm font-bold text-brand-blue mb-1 inline-flex items-center flex-wrap gap-1">
         <span>{label}</span>
         {required && <span className="text-color-error" aria-hidden="true">*</span>}
       </label>
       
-      {helpText && <p className="text-xs text-brand-text-sub mb-2">{helpText}</p>}
+      {helpText && <p className="text-xs text-slate-500 mb-2.5 font-medium">{helpText}</p>}
       
       <div className="flex gap-3">
         <button
+          id={id}
           type="button"
-          onClick={() => onChange(true)}
-          className={`py-2.5 px-4 rounded-xl text-sm font-bold border transition-all cursor-pointer flex-1 text-center ${
-            value === true
-              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+          onClick={() => onChange('sim')}
+          className={`py-3 px-5 rounded-xl text-sm font-bold border transition-all cursor-pointer flex-1 text-center shadow-sm hover:scale-[1.01] active:scale-[0.99] ${
+            value === true || value === 'sim'
+              ? 'bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/10'
+              : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50 hover:border-slate-350'
           }`}
         >
           Sim
         </button>
         <button
           type="button"
-          onClick={() => onChange(false)}
-          className={`py-2.5 px-4 rounded-xl text-sm font-bold border transition-all cursor-pointer flex-1 text-center ${
-            value === false
-              ? 'bg-rose-700 text-white border-rose-700 shadow-md'
-              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+          onClick={() => onChange('nao')}
+          className={`py-3 px-5 rounded-xl text-sm font-bold border transition-all cursor-pointer flex-1 text-center shadow-sm hover:scale-[1.01] active:scale-[0.99] ${
+            value === false || value === 'nao'
+              ? 'bg-gradient-to-br from-rose-500 to-rose-600 text-white border-rose-500 shadow-md shadow-rose-500/10'
+              : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50 hover:border-slate-350'
           }`}
         >
           Não
@@ -412,18 +507,17 @@ export const YesNoField: React.FC<YesNoFieldProps> = ({
       </div>
 
       {exampleText && (
-        <span className="text-xs text-slate-400 italic mt-1.5 block">
+        <span className="text-xs text-slate-400 italic mt-2 block pl-1">
           {exampleText}
         </span>
       )}
 
       {error && (
-        <span className="text-xs text-red-600 mt-1.5 flex items-center gap-1 font-medium">
-          <AlertCircle className="w-3.5 h-3.5" />
+        <span className="text-xs text-red-655 mt-2 flex items-center gap-1 font-semibold">
+          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
           {error}
         </span>
       )}
     </div>
   );
 };
-

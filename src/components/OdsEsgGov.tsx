@@ -150,26 +150,30 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
 
         {activeOdsTab === 'selection' ? (
           <div>
-            <p className="text-xs text-slate-500 mb-3">Selecione até 5 objetivos correspondentes à sua iniciativa:</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <p className="text-xs text-slate-500 mb-4 font-semibold">Selecione até 5 objetivos correspondentes à sua iniciativa:</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {SDG_DETAILS.map((ods) => {
                 const isSelected = data.selectedOdsList?.includes(ods.id);
                 return (
                   <div
                     key={ods.id}
                     onClick={() => handleToggleOds(ods.id)}
-                    className={`p-3 rounded-xl border cursor-pointer select-none transition flex items-start gap-3 ${
+                    className={`p-4 rounded-2xl border cursor-pointer select-none transition-all duration-300 flex items-start gap-3.5 shadow-sm hover:scale-[1.015] active:scale-[0.98] ${
                       isSelected 
-                        ? 'border-brand-cyan bg-brand-cyan/5 ring-1 ring-brand-cyan' 
-                        : 'border-slate-100 bg-white hover:border-slate-300'
+                        ? 'border-brand-cyan bg-sky-50/50 shadow-md shadow-sky-500/10 ring-1 ring-brand-cyan/30' 
+                        : 'border-slate-200/70 bg-white hover:border-slate-350 hover:shadow-md'
                     }`}
                   >
-                    <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center font-bold text-sm bg-brand-blue/10 text-brand-blue">
+                    <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center font-extrabold text-sm transition-all duration-350 ${
+                      isSelected
+                        ? 'bg-brand-cyan text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
                       {ods.num}
                     </div>
-                    <div>
-                      <h4 className="font-bold text-xs text-brand-blue">{ods.name}</h4>
-                      <p className="text-[10px] text-slate-500 mt-1 leading-tight line-clamp-2">{ods.desc}</p>
+                    <div className="min-w-0">
+                      <h4 className="font-extrabold text-xs text-brand-blue truncate">{ods.name}</h4>
+                      <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed line-clamp-2 font-medium">{ods.desc}</p>
                     </div>
                   </div>
                 );
@@ -178,44 +182,44 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-xs text-slate-500">Dentre as ODS indicadas, selecione até 3 como prioritárias e explique brevemente as ações práticas correspondentes:</p>
+            <p className="text-xs text-slate-500 font-semibold">Dentre as ODS indicadas, selecione até 3 como prioritárias e explique brevemente as ações práticas correspondentes:</p>
             
             <div className="space-y-4">
               {SDG_DETAILS.filter(ods => data.selectedOdsList?.includes(ods.id)).map((ods) => {
                 const isPriority = data.priorityOdsList?.includes(ods.id);
                 return (
-                  <div key={ods.id} className="p-4 bg-white rounded-xl border border-slate-100 flex flex-col gap-3">
+                  <div key={ods.id} className="p-5 bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/60 shadow-sm flex flex-col gap-4">
                     <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded bg-brand-cyan text-white flex items-center justify-center font-bold text-xs">{ods.num}</span>
-                        <span className="font-bold text-xs text-brand-blue">{ods.name}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="w-7 h-7 rounded-lg bg-brand-cyan text-white flex items-center justify-center font-extrabold text-xs shrink-0">{ods.num}</span>
+                        <span className="font-extrabold text-xs sm:text-sm text-brand-blue leading-tight">{ods.name}</span>
                       </div>
                       
                       <button
                         type="button"
                         onClick={() => handleTogglePriority(ods.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border transition ${
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all duration-200 ${
                           isPriority
-                            ? 'bg-amber-100 text-amber-800 border-amber-300'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                            ? 'bg-amber-550 bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/10'
+                            : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50 hover:border-slate-300'
                         }`}
                       >
-                        <Star className={`w-3.5 h-3.5 ${isPriority ? 'fill-amber-500 text-amber-500' : ''}`} />
+                        <Star className={`w-3.5 h-3.5 ${isPriority ? 'fill-white text-white' : ''}`} />
                         <span>{isPriority ? 'Prioritário' : 'Marcar Prioritário'}</span>
                       </button>
                     </div>
 
                     {isPriority && (
                       <div className="mt-1">
-                        <label className="text-[11px] font-semibold text-brand-blue block mb-1">
+                        <label className="text-[11px] font-bold text-brand-blue block mb-1.5 uppercase tracking-wide">
                           Como sua organização contribui ativamente para esse ODS? *
                         </label>
                         <textarea
-                          rows={2}
+                          rows={2.5}
                           value={data.odsExplanations?.[ods.id] || ''}
                           onChange={(e) => handleExplanationChange(ods.id, e.target.value)}
                           placeholder="Explique suas atividades práticas ligadas a esta causa..."
-                          className="w-full text-xs p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-cyan"
+                          className="w-full text-xs p-3 rounded-xl border border-slate-200/80 bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan transition shadow-sm"
                         />
                       </div>
                     )}
@@ -227,136 +231,185 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
         )}
       </div>
 
-      {/* 2. ESG COLUMN CHECKBOXES */}
-      <div className="border-t border-slate-200 pt-6 space-y-4">
-        <h3 className="font-bold text-base text-brand-blue flex items-center gap-2">
-          🍃 Pilares Sustentáveis ESG
-        </h3>
-        <p className="text-xs text-slate-500 mt-[-10px]">
-          Marque quais temas socioambientais constam nas ações operacionais da sua entidade:
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Environmental */}
-          <div className="p-4 bg-emerald-50/30 border border-emerald-100 rounded-xl space-y-2.5">
-            <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
-              🟢 Ambiental
-            </h4>
-            <div className="space-y-1.5">
-              {['Educação ambiental', 'Reciclagem', 'Redução de resíduos', 'Preservação ambiental', 'Hortas comunitárias', 'Consumo consciente'].map(item => (
-                <label key={item} className="flex items-center gap-2 text-xs py-1 select-none cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={data.esgEnvironmentalPractices?.includes(item) || false}
-                    onChange={() => handleEsgEnvToggle(item)}
-                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 shrink-0 bg-white"
-                  />
-                  <span className="text-slate-700 font-medium">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Social */}
-          <div className="p-4 bg-blue-50/30 border border-blue-100 rounded-xl space-y-2.5">
-            <h4 className="text-xs font-bold text-brand-blue uppercase tracking-wider flex items-center gap-1">
-              🔵 Social
-            </h4>
-            <div className="space-y-1.5">
-              {['Promoção de direitos', 'Educação', 'Saúde', 'Diversidade e inclusão', 'Geração de renda', 'Desenvolvimento comunitário'].map(item => (
-                <label key={item} className="flex items-center gap-2 text-xs py-1 select-none cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={data.esgSocialPractices?.includes(item) || false}
-                    onChange={() => handleEsgSocialToggle(item)}
-                    className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue w-4 h-4 shrink-0 bg-white"
-                  />
-                  <span className="text-slate-700 font-medium">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Governance */}
-          <div className="p-4 bg-amber-50/30 border border-amber-100 rounded-xl space-y-2.5">
-            <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
-              🟡 Governança (ESG)
-            </h4>
-            <div className="space-y-1.5">
-              {['Conselho', 'Prestação de contas', 'Código de ética', 'Transparência financeira', 'Política de proteção', 'Prevenção de conflitos de interesse'].map(item => (
-                <label key={item} className="flex items-center gap-2 text-xs py-1 select-none cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={data.esgGovernancePractices?.includes(item) || false}
-                    onChange={() => handleEsgGovToggle(item)}
-                    className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-4 h-4 shrink-0 bg-white"
-                  />
-                  <span className="text-slate-700 font-medium">{item}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+      {/* ODS Specific Goals Dropdown (Optional) */}
+      <div className="border-t border-slate-100 pt-5 space-y-3.5">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="odsSpecificGoalsOptional" className="text-xs sm:text-sm font-bold text-brand-blue block">
+            Qual meta específica desse ODS é impactada? (Opcional)
+          </label>
+          <p className="text-[11px] text-slate-500">
+            Caso sua equipe conheça as metas técnicas internas da ONU para os ODSs escolhidos, informe-as abaixo. Caso contrário, selecione "Não sei informar".
+          </p>
         </div>
+        <select
+          id="odsSpecificGoalsOptional"
+          value={data.odsSpecificGoalsOptional || ''}
+          onChange={(e) => onChange({ odsSpecificGoalsOptional: e.target.value })}
+          className="w-full px-4 py-3 rounded-xl border text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan cursor-pointer border-slate-200/80 hover:border-slate-350"
+        >
+          <option value="">Selecione uma meta específica...</option>
+          <option value="nao_sei">Não sei informar</option>
+          <option value="Meta 4.4 - Habilidades técnicas/profissionais para jovens">Meta 4.4 - Aumentar substancialmente o número de jovens com habilidades relevantes para o emprego</option>
+          <option value="Meta 8.5 - Trabalho decente e igualdade salarial">Meta 8.5 - Emprego pleno, produtivo e trabalho decente para todos</option>
+          <option value="Meta 10.2 - Inclusão social, econômica e política">Meta 10.2 - Empoderar e promover a inclusão social, econômica e política de todos</option>
+          <option value="Meta 11.7 - Acesso a espaços públicos seguros e inclusivos">Meta 11.7 - Acesso universal a espaços públicos seguros, inclusivos e acessíveis</option>
+          <option value="Outra">Outra meta específica (descrever no campo de explicações acima)</option>
+        </select>
       </div>
 
-      {/* 3. GOVERNANCE CHECKLIST */}
-      <div className="border-t border-slate-200 pt-6 space-y-4">
-        <h3 className="font-bold text-base text-brand-blue flex items-center gap-2">
-          🏛️ Nível de Governança Institucional
-        </h3>
-        <p className="text-xs text-slate-500 mt-[-10px]">
-          Selecione o estado real correspondente de cada item administrativo listado abaixo. Estas informações ajudam a subsidiar futuras formações coletivas gratuitas apoiadas pela prefeitura:
-        </p>
+      {/* 2. ESG COLUMN CHECKBOXES */}
+      {data.formalizationStatus !== 'no_cnpj' && (
+        <div className="border-t border-slate-200 pt-6 space-y-4">
+          <h3 className="font-bold text-base text-brand-blue flex items-center gap-2">
+            🍃 Pilares Sustentáveis ESG
+          </h3>
+          <p className="text-xs text-slate-500 mt-[-10px] font-semibold">
+            Marque quais temas socioambientais constam nas ações operacionais da sua entidade:
+          </p>
 
-        <div className="space-y-3">
-          {GOV_QUESTIONS.map(({ key, label }) => (
-            <div key={key} className="p-3.5 bg-white border border-slate-100 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm hover:border-slate-200 transition">
-              <span className="text-xs font-bold text-brand-blue flex items-start gap-1">
-                {label}
-                {badgeForField(key)}
-              </span>
-              
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                {GOV_OPTIONS.map((opt) => {
-                  const isChecked = data[key] === opt.value;
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Environmental */}
+            <div className="p-5 bg-emerald-50/30 border border-emerald-100 rounded-2xl space-y-3 shadow-sm">
+              <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-widest flex items-center gap-1.5 pb-1 border-b border-emerald-100/50">
+                🌱 Ambiental
+              </h4>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {['Educação ambiental', 'Reciclagem', 'Redução de resíduos', 'Preservação ambiental', 'Hortas comunitárias', 'Consumo consciente'].map(item => {
+                  const isChecked = data.esgEnvironmentalPractices?.includes(item) || false;
                   return (
                     <button
-                      key={opt.value}
+                      key={item}
                       type="button"
-                      onClick={() => onChange({ [key]: opt.value })}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition select-none ${
+                      onClick={() => handleEsgEnvToggle(item)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                         isChecked
-                          ? 'bg-brand-blue text-white border-brand-blue'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-500/10'
+                          : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50'
                       }`}
                     >
-                      {opt.label}
+                      {isChecked ? '✓ ' : ''}{item}
                     </button>
                   );
                 })}
               </div>
             </div>
-          ))}
-        </div>
 
-        {/* Support Request Flag */}
-        <div className="p-4 bg-blue-50 border border-brand-cyan/20 rounded-xl flex items-center justify-between gap-4 mt-4">
-          <p className="text-xs text-slate-700 font-medium leading-relaxed">
-            💡 A organização demonstra interesse ou precisa de apoio operacional/cursos sobre governança, prestação de contas públicas ou LGPD?
-          </p>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={data.governanceDesiresSupport || false}
-              onChange={(e) => onChange({ governanceDesiresSupport: e.target.checked })}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-cyan" />
-            <span className="ml-2 text-xs font-bold text-slate-700">Sim</span>
-          </label>
+            {/* Social */}
+            <div className="p-5 bg-blue-50/30 border border-blue-100 rounded-2xl space-y-3 shadow-sm">
+              <h4 className="text-xs font-bold text-brand-blue uppercase tracking-widest flex items-center gap-1.5 pb-1 border-b border-blue-100/50">
+                🤝 Social
+              </h4>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {['Promoção de direitos', 'Educação', 'Saúde', 'Diversidade e inclusão', 'Geração de renda', 'Desenvolvimento comunitário'].map(item => {
+                  const isChecked = data.esgSocialPractices?.includes(item) || false;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => handleEsgSocialToggle(item)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        isChecked
+                          ? 'bg-brand-blue text-white border-brand-blue shadow-sm shadow-indigo-500/10'
+                          : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isChecked ? '✓ ' : ''}{item}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Governance */}
+            <div className="p-5 bg-amber-50/30 border border-amber-100 rounded-2xl space-y-3 shadow-sm">
+              <h4 className="text-xs font-bold text-amber-800 uppercase tracking-widest flex items-center gap-1.5 pb-1 border-b border-amber-100/50">
+                ⚖️ Governança (ESG)
+              </h4>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {['Conselho', 'Prestação de contas', 'Código de ética', 'Transparência financeira', 'Política de proteção', 'Prevenção de conflitos de interesse'].map(item => {
+                  const isChecked = data.esgGovernancePractices?.includes(item) || false;
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => handleEsgGovToggle(item)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                        isChecked
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm shadow-amber-500/10'
+                          : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isChecked ? '✓ ' : ''}{item}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* 3. GOVERNANCE CHECKLIST */}
+      {data.formalizationStatus !== 'no_cnpj' && (
+        <div className="border-t border-slate-200 pt-6 space-y-4">
+          <h3 className="font-bold text-base text-brand-blue flex items-center gap-2">
+            🏛️ Nível de Governança Institucional
+          </h3>
+          <p className="text-xs text-slate-500 mt-[-10px] font-semibold">
+            Selecione o estado real correspondente de cada item administrative listado abaixo. Estas informações ajudam a subsidiar futuras formações coletivas gratuitas apoiadas pela prefeitura:
+          </p>
+
+          <div className="space-y-3">
+            {GOV_QUESTIONS.map(({ key, label }) => (
+              <div key={key} className="p-4 bg-white border border-slate-200/60 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 shadow-sm hover:border-slate-350 hover:shadow-md transition-all duration-200">
+                <span className="text-xs sm:text-sm font-bold text-brand-blue flex items-start gap-1.5">
+                  {label}
+                  {badgeForField(key)}
+                </span>
+                
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {GOV_OPTIONS.map((opt) => {
+                    const isChecked = data[key] === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => onChange({ [key]: opt.value })}
+                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-200 select-none ${
+                          isChecked
+                            ? 'bg-brand-blue text-white border-brand-blue shadow-sm shadow-indigo-500/10'
+                            : 'bg-slate-50 text-slate-655 border-slate-200/80 hover:bg-slate-100/80'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Support Request Flag */}
+          <div className="p-4 bg-blue-50/50 border border-brand-cyan/20 rounded-2xl flex items-center justify-between gap-4 mt-4">
+            <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+              💡 A organização demonstra interesse ou precisa de apoio operacional/cursos sobre governança, prestação de contas públicas ou LGPD?
+            </p>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={data.governanceDesiresSupport || false}
+                onChange={(e) => onChange({ governanceDesiresSupport: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-cyan" />
+              <span className="ml-2 text-xs font-bold text-slate-700">Sim</span>
+            </label>
+          </div>
+        </div>
+      )}
 
     </div>
   );
 };
+
