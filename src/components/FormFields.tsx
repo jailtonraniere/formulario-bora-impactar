@@ -61,7 +61,7 @@ export const FillingTipTooltip: React.FC<{ tip: FillingTip }> = ({ tip }) => {
         
         {tip.examples && tip.examples.length > 0 && (
           <span className="text-left border-t border-slate-800 pt-2 select-text">
-            <strong className="text-amber-400 text-[10px] uppercase font-bold block mb-1">📝 Exemplos Recomendados:</strong>
+            <strong className="text-amber-400 text-[10px] uppercase font-bold block mb-1">📝 Exemplos:</strong>
             <span className="flex flex-col gap-1 pl-1 text-[11px] text-slate-300 font-normal leading-normal italic">
               {tip.examples.map((ex, i) => (
                 <span key={i} className="flex items-start gap-1">
@@ -210,7 +210,7 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
 
       {exampleText && (
         <span className="text-xs bg-slate-50/70 text-slate-600 p-3 rounded-xl border border-dashed border-slate-200 italic mt-2 leading-relaxed block pl-3">
-          💡 <strong>Exemplo recomendado:</strong> "{exampleText}"
+          💡 <strong>Exemplo:</strong> "{exampleText}"
         </span>
       )}
 
@@ -349,7 +349,7 @@ export const ProgressBar: React.FC<{
             <span className="text-2xl font-black text-brand-blue tracking-tight">
               {percentage}%
             </span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-[-4px]">Preenchido</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mt-[-4px]">das Etapas</span>
           </div>
         </div>
 

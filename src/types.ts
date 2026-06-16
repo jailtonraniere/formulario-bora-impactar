@@ -123,6 +123,7 @@ export interface OrganizationData {
 
   // About organization (Step 3)
   mainCause: string;
+  mainCauseOther?: string;
   secondaryCauses: string[];
   history: string;
   mission: string;

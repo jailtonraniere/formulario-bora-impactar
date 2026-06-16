@@ -446,6 +446,7 @@ export default function App() {
   const [aiGeneratingField, setAiGeneratingField] = useState<string | null>(null);
   const [showHelpNoCnpj, setShowHelpNoCnpj] = useState<boolean>(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [showValidationErrorsModal, setShowValidationErrorsModal] = useState<boolean>(false);
   const [isAutoSavedBlinking, setIsAutoSavedBlinking] = useState<boolean>(false);
   const [showStatusConfirmModal, setShowStatusConfirmModal] = useState<boolean>(false);
   const [pendingStatusChange, setPendingStatusChange] = useState<OrganizationData['formalizationStatus']>('');
@@ -745,6 +746,7 @@ export default function App() {
       if (stepInfo && stepInfo.missingIds && stepInfo.missingIds.length > 0) {
         const msgs = stepInfo.missing.map(label => `O campo "${label}" é obrigatório e está pendente.`);
         setValidationErrors(msgs);
+        setShowValidationErrorsModal(true);
         
         const firstErrorId = stepInfo.missingIds[0];
         let focusId = firstErrorId;
@@ -998,7 +1000,6 @@ export default function App() {
       location: '',
       beneficiaryPublic: '',
       estimatedBeneficiaryCount: 0,
-      expectedResult: '',
       offeredCounterparts: [],
       responsibleName: ''
     });
@@ -1143,6 +1144,44 @@ export default function App() {
                 className="py-2.5 px-4 bg-brand-blue hover:bg-brand-cyan text-white rounded-xl text-xs font-bold text-center transition shadow-md"
               >
                 Salvar e Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VALIDATION ERRORS MODAL */}
+      {showValidationErrorsModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl max-w-md w-full border border-slate-200/50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-250">
+            <div className="p-6 border-b border-slate-100 bg-rose-50/50 flex items-center gap-4">
+              <div className="p-3 bg-rose-100 text-rose-600 rounded-2xl shrink-0">
+                <AlertCircle className="w-5.5 h-5.5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-brand-blue text-sm leading-tight">
+                  Campos Pendentes
+                </h3>
+              </div>
+            </div>
+            
+            <div className="p-6 max-h-[300px] overflow-y-auto">
+              <ul className="space-y-2">
+                {validationErrors.map((err, i) => (
+                  <li key={i} className="text-xs text-slate-600 font-medium flex items-start gap-2">
+                    <span className="text-rose-400 mt-0.5">•</span> {err}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="p-5 bg-slate-50/55 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowValidationErrorsModal(false)}
+                className="py-2.5 px-6 bg-brand-blue hover:bg-brand-cyan text-white rounded-xl text-xs font-bold transition shadow-md"
+              >
+                Entendido
               </button>
             </div>
           </div>
@@ -2093,6 +2132,15 @@ export default function App() {
                     />
 
                     <InputField
+                      id="fillerRole"
+                      label="Função de quem preenche"
+                      value={formData.fillerRole}
+                      onChange={(e) => setFormData(prev => ({ ...prev, fillerRole: e.target.value }))}
+                      exampleText="Coordenador de Projetos"
+                      helpText={badgeForField('fillerRole') as any}
+                    />
+
+                    <InputField
                       id="phone"
                       label="Telefone institucional de contato"
                       required
@@ -2248,6 +2296,17 @@ export default function App() {
                       helpText={badgeForField('mainCause') as any}
                     />
 
+                    {formData.mainCause === 'Outra' && (
+                      <InputField
+                        id="mainCauseOther"
+                        label="Especifique a outra causa"
+                        value={formData.mainCauseOther || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, mainCauseOther: e.target.value }))}
+                        required
+                        exampleText="Ex: Defesa do consumidor"
+                      />
+                    )}
+
                     <TextAreaField
                       id="history"
                       label="Como surgiu a organização? (Histórico)"
@@ -2351,7 +2410,7 @@ export default function App() {
                     {/* Audiences Checklist */}
                     <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">Públicos atendidos pelas atividades:</span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {['Crianças', 'Adolescentes', 'Jovens', 'Mulheres', 'Famílias', 'Pessoas idosas', 'Pessoas com deficiência', 'Pessoas em situação de rua', 'População negra', 'População LGBTQIA+'].map((item) => {
+                      {['Todos / Público em geral', 'Crianças', 'Adolescentes', 'Jovens', 'Mulheres', 'Famílias', 'Pessoas idosas', 'Pessoas com deficiência', 'Pessoas em situação de rua', 'População negra', 'População LGBTQIA+'].map((item) => {
                         const isChecked = formData.audiences?.includes(item);
                         return (
                           <label key={item} className="flex items-center gap-2 text-xs py-1.5 px-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition">
@@ -2404,7 +2463,7 @@ export default function App() {
 
                     <InputField
                       id="monthlyAverageAttendance"
-                      label="Quantidade média de pessoas faturadas ou atendidas por mês"
+                      label="Quantidade média de pessoas beneficiadas ou atendidas por mês"
                       value={formData.monthlyAverageAttendance}
                       onChange={(e) => setFormData(prev => ({ ...prev, monthlyAverageAttendance: e.target.value.replace(/\D/g, '') }))}
                       exampleText="e.g. 120"
@@ -2873,7 +2932,7 @@ export default function App() {
                           onClick={handleAddOpportunity}
                           className="px-3.5 py-1.5 bg-brand-blue hover:bg-brand-cyan text-white rounded-lg text-xs font-bold shadow transition"
                         >
-                          Anexar Oportunidade
+                          Registrar Oportunidade
                         </button>
                       </div>
                     )}
@@ -2933,6 +2992,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 select-none">
                     {[
                       { key: 'logo', label: 'Logomarca oficial da Organização', forAll: true },
+                      { key: 'photos', label: 'Fotos das atividades e projetos (pode anexar várias)', forAll: true },
                       { key: 'presentation', label: 'Apresentação institucional (.pdf ou .ppt)', forAll: true },
                       { key: 'annualReport', label: 'Relatório de Atividades dos últimos 12 meses', forAll: false },
                       { key: 'bylawsFile', label: 'Estatuto original ou Ata de fundação', forAll: false }
@@ -2945,7 +3005,9 @@ export default function App() {
                           <div>
                             <span className="text-xs font-bold text-brand-blue block">{item.label}</span>
                             {uploadedName ? (
-                              <span className="text-[10px] text-brand-cyan font-bold block mt-1">✓ Anexo Simulado: {Array.isArray(uploadedName) ? uploadedName[0] : uploadedName}</span>
+                              <span className="text-[10px] text-brand-cyan font-bold block mt-1">
+                                ✓ Anexo Simulado: {Array.isArray(uploadedName) ? `${uploadedName.length} arquivo(s) anexado(s)` : uploadedName}
+                              </span>
                             ) : (
                               <span className="text-[10px] text-slate-400 block mt-1">Upload pendente...</span>
                             )}
