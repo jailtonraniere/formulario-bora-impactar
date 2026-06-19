@@ -296,7 +296,8 @@ export const ProgressBar: React.FC<{
   currentStep: number;
   totalSteps: number;
   stepName: string;
-}> = ({ currentStep, totalSteps, stepName }) => {
+  onStepClick?: (step: number) => void;
+}> = ({ currentStep, totalSteps, stepName, onStepClick }) => {
   const percentage = Math.round((currentStep / totalSteps) * 100);
 
   const stepLabels = [
@@ -383,12 +384,13 @@ export const ProgressBar: React.FC<{
             return (
               <div key={index} className="flex flex-col items-center relative z-10">
                 <div 
-                  className={`w-8.5 h-8.5 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${
+                  onClick={() => onStepClick && onStepClick(stepNum)}
+                  className={`w-8.5 h-8.5 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${onStepClick ? 'cursor-pointer' : ''} ${
                     isCompleted 
-                      ? 'bg-emerald-500 text-white border-2 border-emerald-500 shadow-md shadow-emerald-500/10' 
+                      ? 'bg-emerald-500 text-white border-2 border-emerald-500 shadow-md shadow-emerald-500/10 hover:bg-emerald-600' 
                       : isActive 
                         ? 'bg-white text-brand-cyan border-2 border-brand-cyan shadow-lg shadow-sky-500/15 ring-4 ring-sky-500/10 scale-110 font-extrabold' 
-                        : 'bg-white text-slate-400 border-2 border-slate-200 hover:border-slate-350'
+                        : 'bg-white text-slate-400 border-2 border-slate-200 hover:border-slate-350 hover:bg-slate-50'
                   }`}
                   title={`${stepNum}. ${label}`}
                 >

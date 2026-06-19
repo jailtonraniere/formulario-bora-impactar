@@ -1446,6 +1446,10 @@ export default function App() {
               currentStep={currentStep}
               totalSteps={totalSteps}
               stepName={stepNames[currentStep - 1]}
+              onStepClick={(step) => {
+                setCurrentStep(step);
+                window.scrollTo(0, 0);
+              }}
             />
 
             {/* Active details indicator flag */}
