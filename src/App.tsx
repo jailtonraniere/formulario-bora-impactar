@@ -734,30 +734,7 @@ export default function App() {
 
   // Generic step transitions
   const handleNextStep = () => {
-    if (currentStep >= 1 && currentStep <= 8) {
-      const stepInfo = stepProgressList.find(s => s.step === currentStep);
-      if (stepInfo && stepInfo.missingIds && stepInfo.missingIds.length > 0) {
-        const msgs = stepInfo.missing.map(label => `O campo "${label}" é obrigatório e está pendente.`);
-        setValidationErrors(msgs);
-        setShowValidationErrorsModal(true);
-        
-        const firstErrorId = stepInfo.missingIds[0];
-        let focusId = firstErrorId;
-        if (focusId.startsWith('odsExplanations.')) {
-          focusId = focusId.split('.')[1];
-        }
-        
-        setTimeout(() => {
-          const el = document.getElementById(focusId);
-          if (el) {
-            el.focus();
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
-        return;
-      }
-    }
-
+    // Form validation on next step removed to allow free navigation
     setValidationErrors([]);
     if (currentStep < totalSteps) {
       setCurrentStep(prev => prev + 1);
