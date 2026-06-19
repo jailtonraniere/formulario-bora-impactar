@@ -834,7 +834,7 @@ export const SDG_DETAILS = [
     num: 1,
     name: 'Erradicação da Pobreza',
     desc: 'Acabar com a pobreza em todas as suas formas, em todos os lugares.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-1.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-01.jpg',
     targets: [
       '1.1 Erradicar a extrema pobreza',
       '1.2 Reduzir a pobreza pela metade',
@@ -850,7 +850,7 @@ export const SDG_DETAILS = [
     num: 2,
     name: 'Fome Zero e Agricultura Sustentável',
     desc: 'Erradicar a fome, alcançar a segurança alimentar e melhorar a nutrição.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-2.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-02.jpg',
     targets: [
       '2.1 Acabar com a fome e garantir acesso a alimentos',
       '2.2 Acabar com todas as formas de desnutrição',
@@ -867,7 +867,7 @@ export const SDG_DETAILS = [
     num: 3,
     name: 'Saúde e Bem-Estar',
     desc: 'Garantir o acesso à saúde de qualidade e promover o bem-estar para todos.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-3.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-03.jpg',
     targets: [
       '3.1 Reduzir a mortalidade materna',
       '3.2 Acabar com mortes evitáveis de recém-nascidos e crianças',
@@ -889,7 +889,7 @@ export const SDG_DETAILS = [
     num: 4,
     name: 'Educação de Qualidade',
     desc: 'Garantir educação inclusiva, equitativa e de qualidade, e promover oportunidades de aprendizagem.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-4.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-04.jpg',
     targets: [
       '4.1 Educação primária e secundária gratuita e de qualidade',
       '4.2 Acesso à educação infantil e desenvolvimento na primeira infância',
@@ -908,7 +908,7 @@ export const SDG_DETAILS = [
     num: 5,
     name: 'Igualdade de Gênero',
     desc: 'Alcançar a igualdade de gênero e empoderar todas as mulheres e meninas.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-5.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-05.jpg',
     targets: [
       '5.1 Acabar com a discriminação contra mulheres e meninas',
       '5.2 Eliminar violência e exploração',
@@ -926,7 +926,7 @@ export const SDG_DETAILS = [
     num: 6,
     name: 'Água Potável e Saneamento',
     desc: 'Garantir a disponibilidade e a gestão sustentável da água e saneamento para todos.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-6.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-06.jpg',
     targets: [
       '6.1 Acesso seguro e acessível à água potável',
       '6.2 Saneamento e higiene para todos',
@@ -943,7 +943,7 @@ export const SDG_DETAILS = [
     num: 7,
     name: 'Energia Limpa e Acessível',
     desc: 'Garantir o acesso a fontes de energia modernas, confiáveis, sustentáveis e baratas.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-7.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-07.jpg',
     targets: [
       '7.1 Acesso universal a serviços de energia',
       '7.2 Aumentar a proporção de energia renovável',
@@ -957,7 +957,7 @@ export const SDG_DETAILS = [
     num: 8,
     name: 'Trabalho Decente e Crescimento Econômico',
     desc: 'Promover o crescimento econômico sustentável, emprego pleno e trabalho decente para todos.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-8.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-08.jpg',
     targets: [
       '8.1 Crescimento econômico sustentável',
       '8.2 Produtividade e inovação tecnológica',
@@ -978,7 +978,7 @@ export const SDG_DETAILS = [
     num: 9,
     name: 'Indústria, Inovação e Infraestrutura',
     desc: 'Construir infraestruturas resilientes, promover a industrialização inclusiva e fomentar a inovação.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-9.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-09.jpg',
     targets: [
       '9.1 Infraestrutura sustentável, resiliente e inclusiva',
       '9.2 Industrialização inclusiva e sustentável',
@@ -995,7 +995,7 @@ export const SDG_DETAILS = [
     num: 10,
     name: 'Redução das Desigualdades',
     desc: 'Reduzir a desigualdade dentro dos países e entre eles.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-10.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-10.jpg',
     targets: [
       '10.1 Crescimento da renda dos 40% mais pobres',
       '10.2 Inclusão social, econômica e política de todos',
@@ -1014,7 +1014,7 @@ export const SDG_DETAILS = [
     num: 11,
     name: 'Cidades e Comunidades Sustentáveis',
     desc: 'Tornar as cidades e os assentamentos humanos inclusivos, seguros, resilientes e sustentáveis.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-11.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-11.jpg',
     targets: [
       '11.1 Habitação segura, adequada e a preço acessível',
       '11.2 Sistemas de transporte seguros, acessíveis e sustentáveis',
@@ -1033,7 +1033,7 @@ export const SDG_DETAILS = [
     num: 12,
     name: 'Consumo e Produção Responsáveis',
     desc: 'Assegurar padrões de produção e de consumo sustentáveis.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-12.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-12.jpg',
     targets: [
       '12.1 Implementar programas de consumo e produção sustentáveis',
       '12.2 Gestão sustentável de recursos naturais',
@@ -1053,7 +1053,7 @@ export const SDG_DETAILS = [
     num: 13,
     name: 'Ação Contra a Mudança Global do Clima',
     desc: 'Adotar medidas urgentes para combater a mudança climática e os seus impactos.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-13.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-13.jpg',
     targets: [
       '13.1 Reforçar resiliência a riscos climáticos e desastres',
       '13.2 Integrar medidas de mudança do clima nas políticas nacionais',
@@ -1067,7 +1067,7 @@ export const SDG_DETAILS = [
     num: 14,
     name: 'Vida na Água',
     desc: 'Conservar e usar de forma sustentável os oceanos, mares e recursos marinhos.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-14.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-14.jpg',
     targets: [
       '14.1 Prevenir e reduzir a poluição marinha',
       '14.2 Gerir ecossistemas marinhos e costeiros',
@@ -1086,7 +1086,7 @@ export const SDG_DETAILS = [
     num: 15,
     name: 'Vida Terrestre',
     desc: 'Proteger, recuperar e promover o uso sustentável dos ecossistemas terrestres.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-15.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-15.jpg',
     targets: [
       '15.1 Conservação e restauração de ecossistemas terrestres e de água doce',
       '15.2 Gestão sustentável de florestas, parar desmatamento',
@@ -1107,7 +1107,7 @@ export const SDG_DETAILS = [
     num: 16,
     name: 'Paz, Justiça e Instituições Eficazes',
     desc: 'Promover sociedades pacíficas e inclusivas para o desenvolvimento sustentável.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-16.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-16.jpg',
     targets: [
       '16.1 Reduzir violência e mortalidade associada',
       '16.2 Acabar com abuso, exploração e violência contra crianças',
@@ -1128,7 +1128,7 @@ export const SDG_DETAILS = [
     num: 17,
     name: 'Parcerias e Meios de Implementação',
     desc: 'Fortalecer os meios de implementação e revitalizar a parceria global para o desenvolvimento sustentável.',
-    image: 'https://brasil.un.org/sites/default/files/2019-09/SDG-17.png',
+    image: 'https://sdgs.un.org/sites/default/files/goals/E_SDG_Icons-17.jpg',
     targets: [
       '17.1 Finanças: Mobilização de recursos internos',
       '17.2 Finanças: Países desenvolvidos cumprindo compromissos de AOD',
