@@ -116,10 +116,10 @@ export interface OrganizationData {
   otherSocials: string;
   
   // Permissions for contacts
-  phonePermission: 'internal' | 'partners' | 'public';
-  whatsappPermission: 'internal' | 'partners' | 'public';
-  emailPermission: 'internal' | 'partners' | 'public';
-  socialPermission: 'internal' | 'partners' | 'public';
+  phonePermission: Array<'internal' | 'partners' | 'public'> | 'internal' | 'partners' | 'public';
+  whatsappPermission: Array<'internal' | 'partners' | 'public'> | 'internal' | 'partners' | 'public';
+  emailPermission: Array<'internal' | 'partners' | 'public'> | 'internal' | 'partners' | 'public';
+  socialPermission: Array<'internal' | 'partners' | 'public'> | 'internal' | 'partners' | 'public';
 
   // About organization (Step 3)
   mainCause: string;
@@ -162,6 +162,7 @@ export interface OrganizationData {
   hasActivityReport: boolean;
   hasImpactReport: boolean;
   hasTestimonials: boolean;
+  testimonialsText?: string;
   authorizeTestimonialsPublishing: boolean;
   impactResultsList: ImpactResult[];
 
@@ -226,6 +227,7 @@ export interface OrganizationData {
     annualReport?: string;
     impactReport?: string;
     bylawsFile?: string;
+    testimonialsFile?: string;
     otherFiles?: string[];
   };
   institutionalVideoLink?: string;

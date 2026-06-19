@@ -164,13 +164,11 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
                         : 'border-slate-200/70 bg-white hover:border-slate-350 hover:shadow-md'
                     }`}
                   >
-                    <div className={`w-9 h-9 rounded-xl shrink-0 flex items-center justify-center font-extrabold text-sm transition-all duration-350 ${
-                      isSelected
-                        ? 'bg-brand-cyan text-white shadow-sm'
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {ods.num}
-                    </div>
+                    <img 
+                      src={ods.image} 
+                      alt={`ODS ${ods.num}`} 
+                      className={`w-14 h-14 rounded-xl shrink-0 object-contain shadow-sm transition-all duration-350 ${!isSelected && 'opacity-80 grayscale-[20%]'}`}
+                    />
                     <div className="min-w-0">
                       <h4 className="font-extrabold text-xs text-brand-blue truncate">{ods.name}</h4>
                       <p className="text-[10.5px] text-slate-500 mt-1 leading-relaxed line-clamp-2 font-medium">{ods.desc}</p>
@@ -191,7 +189,7 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
                   <div key={ods.id} className="p-5 bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/60 shadow-sm flex flex-col gap-4">
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-3">
-                        <span className="w-7 h-7 rounded-lg bg-brand-cyan text-white flex items-center justify-center font-extrabold text-xs shrink-0">{ods.num}</span>
+                        <img src={ods.image} alt={`ODS ${ods.num}`} className="w-9 h-9 rounded-lg shrink-0 object-contain shadow-sm" />
                         <span className="font-extrabold text-xs sm:text-sm text-brand-blue leading-tight">{ods.name}</span>
                       </div>
                       
@@ -248,12 +246,16 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
           className="w-full px-4 py-3 rounded-xl border text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan cursor-pointer border-slate-200/80 hover:border-slate-350"
         >
           <option value="">Selecione uma meta específica...</option>
+          {SDG_DETAILS.filter(ods => data.selectedOdsList?.includes(ods.id)).map(ods => (
+            <optgroup key={ods.id} label={`ODS ${ods.num} - ${ods.name}`}>
+              {ods.targets?.map((target) => (
+                <option key={target} value={target}>
+                  {target}
+                </option>
+              ))}
+            </optgroup>
+          ))}
           <option value="nao_sei">Não sei informar</option>
-          <option value="Meta 4.4 - Habilidades técnicas/profissionais para jovens">Meta 4.4 - Aumentar substancialmente o número de jovens com habilidades relevantes para o emprego</option>
-          <option value="Meta 8.5 - Trabalho decente e igualdade salarial">Meta 8.5 - Emprego pleno, produtivo e trabalho decente para todos</option>
-          <option value="Meta 10.2 - Inclusão social, econômica e política">Meta 10.2 - Empoderar e promover a inclusão social, econômica e política de todos</option>
-          <option value="Meta 11.7 - Acesso a espaços públicos seguros e inclusivos">Meta 11.7 - Acesso universal a espaços públicos seguros, inclusivos e acessíveis</option>
-          <option value="Outra">Outra meta específica (descrever no campo de explicações acima)</option>
         </select>
       </div>
 

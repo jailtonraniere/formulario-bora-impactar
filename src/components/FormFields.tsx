@@ -93,16 +93,19 @@ export const InputField: React.FC<InputFieldProps> = ({
   ...props
 }) => {
   return (
-    <div className={`flex flex-col w-full ${className}`}>
-      <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
-        <span>{label}</span>
-        {required && <span className="text-color-error" aria-hidden="true">*</span>}
-        {fillingTip && <FillingTipTooltip tip={fillingTip} />}
-      </label>
+    <div className={`flex flex-col w-full h-full ${className}`}>
+      <div>
+        <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
+          <span>{label}</span>
+          {required && <span className="text-color-error" aria-hidden="true">*</span>}
+          {fillingTip && <FillingTipTooltip tip={fillingTip} />}
+        </label>
+        
+        {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
+      </div>
       
-      {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
-      
-      <div className="relative">
+      <div className="mt-auto flex flex-col">
+        <div className="relative">
         {icon && (
           <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
             {icon}
@@ -130,12 +133,13 @@ export const InputField: React.FC<InputFieldProps> = ({
         </span>
       )}
 
-      {error && (
-        <span id={`${id}-error`} className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
-          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-          {error}
-        </span>
-      )}
+        {error && (
+          <span id={`${id}-error`} className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
+            <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+            {error}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
@@ -162,24 +166,27 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
   const charCount = typeof value === 'string' ? value.length : 0;
 
   return (
-    <div className={`flex flex-col w-full ${className}`}>
-      <div className="flex justify-between items-baseline mb-1.5">
-        <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue inline-flex items-center flex-wrap gap-1">
-          <span>{label}</span>
-          {required && <span className="text-color-error" aria-hidden="true">*</span>}
-          {fillingTip && <FillingTipTooltip tip={fillingTip} />}
-        </label>
-        
-        {maxLength && (
-          <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-            {charCount}/{maxLength}
-          </span>
-        )}
+    <div className={`flex flex-col w-full h-full ${className}`}>
+      <div>
+        <div className="flex justify-between items-baseline mb-1.5">
+          <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue inline-flex items-center flex-wrap gap-1">
+            <span>{label}</span>
+            {required && <span className="text-color-error" aria-hidden="true">*</span>}
+            {fillingTip && <FillingTipTooltip tip={fillingTip} />}
+          </label>
+          
+          {maxLength && (
+            <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+              {charCount}/{maxLength}
+            </span>
+          )}
+        </div>
+
+        {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
       </div>
 
-      {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
-
-      <div className="relative">
+      <div className="mt-auto flex flex-col">
+        <div className="relative">
         <textarea
           id={id}
           rows={3.5}
@@ -214,12 +221,13 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
         </span>
       )}
 
-      {error && (
-        <span className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
-          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-          {error}
-        </span>
-      )}
+        {error && (
+          <span className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
+            <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+            {error}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
@@ -242,16 +250,19 @@ export const SelectField: React.FC<SelectFieldProps> = ({
   ...props
 }) => {
   return (
-    <div className={`flex flex-col w-full ${className}`}>
-      <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
-        <span>{label}</span>
-        {required && <span className="text-color-error" aria-hidden="true">*</span>}
-        {fillingTip && <FillingTipTooltip tip={fillingTip} />}
-      </label>
+    <div className={`flex flex-col w-full h-full ${className}`}>
+      <div>
+        <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
+          <span>{label}</span>
+          {required && <span className="text-color-error" aria-hidden="true">*</span>}
+          {fillingTip && <FillingTipTooltip tip={fillingTip} />}
+        </label>
 
-      {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
+        {helpText && <p className="text-xs text-brand-cyan mb-1.5 font-medium">{helpText}</p>}
+      </div>
 
-      <select
+      <div className="mt-auto flex flex-col">
+        <select
         id={id}
         value={value}
         className={`w-full px-4 py-3 rounded-xl border text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan cursor-pointer ${
@@ -270,12 +281,13 @@ export const SelectField: React.FC<SelectFieldProps> = ({
         ))}
       </select>
 
-      {error && (
-        <span className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
-          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-          {error}
-        </span>
-      )}
+        {error && (
+          <span className="text-xs text-red-650 mt-1.5 flex items-center gap-1 font-semibold">
+            <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+            {error}
+          </span>
+        )}
+      </div>
     </div>
   );
 };
@@ -472,15 +484,18 @@ export const YesNoField: React.FC<YesNoFieldProps> = ({
   error,
 }) => {
   return (
-    <div className="flex flex-col w-full font-sans">
-      <label className="text-xs sm:text-sm font-bold text-brand-blue mb-1 inline-flex items-center flex-wrap gap-1">
-        <span>{label}</span>
-        {required && <span className="text-color-error" aria-hidden="true">*</span>}
-      </label>
+    <div className="flex flex-col w-full h-full font-sans">
+      <div>
+        <label className="text-xs sm:text-sm font-bold text-brand-blue mb-1 inline-flex items-center flex-wrap gap-1">
+          <span>{label}</span>
+          {required && <span className="text-color-error" aria-hidden="true">*</span>}
+        </label>
+        
+        {helpText && <p className="text-xs text-slate-500 mb-2.5 font-medium">{helpText}</p>}
+      </div>
       
-      {helpText && <p className="text-xs text-slate-500 mb-2.5 font-medium">{helpText}</p>}
-      
-      <div className="flex gap-3">
+      <div className="mt-auto flex flex-col">
+        <div className="flex gap-3">
         <button
           id={id}
           type="button"
@@ -512,12 +527,13 @@ export const YesNoField: React.FC<YesNoFieldProps> = ({
         </span>
       )}
 
-      {error && (
-        <span className="text-xs text-red-655 mt-2 flex items-center gap-1 font-semibold">
-          <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-          {error}
-        </span>
-      )}
+        {error && (
+          <span className="text-xs text-red-655 mt-2 flex items-center gap-1 font-semibold">
+            <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+            {error}
+          </span>
+        )}
+      </div>
     </div>
   );
 };

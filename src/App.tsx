@@ -78,7 +78,6 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
     
     // Extra checks for list structures that are required
     const extraFieldsToCheck = [
-      { id: 'citiesOfActivity', label: 'Cidades onde atua' },
       { id: 'neighborhoodsOfActivity', label: 'Bairros onde atua' }
     ];
     extraFieldsToCheck.forEach(f => {
@@ -105,7 +104,6 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
         if (f === 'neighborhood') return 'Bairro';
         if (f === 'operatingHours') return 'Horário de funcionamento';
         if (f === 'legalNature') return 'Natureza jurídica';
-        if (f === 'citiesOfActivity') return 'Cidades onde atua';
         if (f === 'neighborhoodsOfActivity') return 'Bairros onde atua';
         if (f.startsWith('parentOrg')) return 'Informações da organização parceira';
         if (f.startsWith('formalization')) return 'Previsões e apoios de formalização';
@@ -208,8 +206,8 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
   // Step 4: Público e território
   {
     const fields = [
-      'audiences', 'ageRanges', 'neighborhoodsOfActivity', 'communitiesAttended', 'citiesOfActivity',
-      'attendanceType', 'territorialScope', 'participationCriteria', 'monthlyAverageAttendance'
+      'audiences', 'ageRanges', 'neighborhoodsOfActivity',
+      'attendanceType', 'participationCriteria', 'monthlyAverageAttendance'
     ];
     const visibleFields = fields.filter(f => isFieldVisible(f, status));
     const requiredVisibleFields = visibleFields.filter(f => isFieldRequired(f, status));
@@ -225,10 +223,8 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
         if (f === 'audiences') return 'Públicos atendidos';
         if (f === 'ageRanges') return 'Faixas etárias';
         if (f === 'neighborhoodsOfActivity') return 'Bairros de atuação';
-        if (f === 'communitiesAttended') return 'Comunidades atendidas';
-        if (f === 'citiesOfActivity') return 'Cidades de atuação';
+        if (f === 'neighborhoodsOfActivity') return 'Bairros de atuação';
         if (f === 'attendanceType') return 'Tipo de atendimento';
-        if (f === 'territorialScope') return 'Abrangência territorial';
         if (f === 'participationCriteria') return 'Critérios de participação';
         if (f === 'monthlyAverageAttendance') return 'Atendimentos médios mensais';
         return f;
@@ -249,8 +245,8 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
   // Step 5: Resultados e impacto
   {
     const fields = [
-      'servedLast12Months', 'totalAttendancesLast12Months', 'isEstimateOrExact', 'mainResultsSummary',
-      'beneficiaryProfile', 'indicators', 'indicatorStatus', 'resultsTrackingMethod', 'evaluationFrequency',
+      'isEstimateOrExact', 'mainResultsSummary',
+      'indicators', 'indicatorStatus', 'resultsTrackingMethod', 'evaluationFrequency',
       'goalsNext12Months', 'goalsMediumTerm', 'goalsLongTerm', 'hasActivityReport', 'hasImpactReport',
       'hasTestimonials', 'authorizeTestimonialsPublishing', 'resultsTrackingMethodsInformal'
     ];
@@ -265,11 +261,8 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
     const missingLabels = requiredVisibleFields
       .filter(f => !filledRequired.includes(f))
       .map(f => {
-        if (f === 'servedLast12Months') return 'Pessoas atendidas nos últimos 12 meses';
-        if (f === 'totalAttendancesLast12Months') return 'Total de atividades/participações';
         if (f === 'isEstimateOrExact') return 'Exatidão da métrica de pessoas';
         if (f === 'mainResultsSummary') return 'Resultados/mudanças percebidas';
-        if (f === 'beneficiaryProfile') return 'Perfil dos beneficiários';
         if (f === 'indicators') return 'Indicadores utilizados';
         if (f === 'indicatorStatus') return 'Maturidade dos indicadores';
         if (f === 'resultsTrackingMethod') return 'Como mede resultados';
@@ -2021,31 +2014,7 @@ export default function App() {
                         disabled
                       />
                       
-                      <div className="sm:col-span-3 border-t border-slate-100 pt-4 space-y-3">
-                        <label className="text-xs sm:text-sm font-bold text-brand-blue block">
-                          Cidades onde atua: *
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {['Recife', 'Olinda', 'Jaboatão dos Guararapes', 'Paulista', 'Outra'].map((item) => {
-                            const isChecked = formData.citiesOfActivity?.includes(item);
-                            return (
-                              <label key={item} className="flex items-center gap-2 text-xs py-1.5 px-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked || false}
-                                  onChange={() => {
-                                    const list = [...(formData.citiesOfActivity || [])];
-                                    const updated = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
-                                    setFormData(prev => ({ ...prev, citiesOfActivity: updated }));
-                                  }}
-                                  className="rounded border-slate-300 text-brand-blue w-4 h-4"
-                                />
-                                <span className="text-slate-700 font-semibold">{item}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
+
 
                       <div className="sm:col-span-3 space-y-3">
                         <label className="text-xs sm:text-sm font-bold text-brand-blue block">
@@ -2209,9 +2178,22 @@ export default function App() {
                               <button
                                 key={opt.val}
                                 type="button"
-                                onClick={() => setFormData(prev => ({ ...prev, [item.key]: opt.val as any }))}
+                                onClick={() => {
+                                  setFormData(prev => {
+                                    const currentVal = prev[item.key as keyof OrganizationData];
+                                    const arr = Array.isArray(currentVal) ? [...currentVal] : (currentVal ? [currentVal] : []);
+                                    
+                                    if (arr.includes(opt.val)) {
+                                      return { ...prev, [item.key]: arr.filter(v => v !== opt.val) };
+                                    } else {
+                                      return { ...prev, [item.key]: [...arr, opt.val] };
+                                    }
+                                  });
+                                }}
                                 className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition ${
-                                  formData[item.key as keyof OrganizationData] === opt.val
+                                  (Array.isArray(formData[item.key as keyof OrganizationData]) 
+                                    ? (formData[item.key as keyof OrganizationData] as any[]).includes(opt.val)
+                                    : formData[item.key as keyof OrganizationData] === opt.val)
                                     ? 'bg-brand-blue text-white border-brand-blue'
                                     : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                                 }`}
@@ -2433,27 +2415,6 @@ export default function App() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-5">
                     <InputField
-                      id="communitiesAttended"
-                      label="Comunidades de atuação direta"
-                      value={formData.communitiesAttended}
-                      onChange={(e) => setFormData(prev => ({ ...prev, communitiesAttended: e.target.value }))}
-                      exampleText="Ibura, Três Carneiros, Pantanal"
-                    />
-
-                    <SelectField
-                      id="territorialScope"
-                      label="Abrangência territorial global"
-                      options={[
-                        { value: 'Comunitária', label: 'Comunitária (Apenas no bairro ou entorno)' },
-                        { value: 'Municipal', label: 'Municipal (Cidade do Recife)' },
-                        { value: 'Metropolitana', label: 'Metropolitana (Grande de Recife)' },
-                        { value: 'Estadual', label: 'Estadual (Pernambuco)' }
-                      ]}
-                      value={formData.territorialScope}
-                      onChange={(e) => setFormData(prev => ({ ...prev, territorialScope: e.target.value }))}
-                    />
-
-                    <InputField
                       id="participationCriteria"
                       label="Critérios de seleção / participação social nas atividades"
                       value={formData.participationCriteria}
@@ -2463,7 +2424,7 @@ export default function App() {
 
                     <InputField
                       id="monthlyAverageAttendance"
-                      label="Quantidade média de pessoas beneficiadas ou atendidas por mês"
+                      label="Quantidade média de pessoas atendidas por mês"
                       value={formData.monthlyAverageAttendance}
                       onChange={(e) => setFormData(prev => ({ ...prev, monthlyAverageAttendance: e.target.value.replace(/\D/g, '') }))}
                       exampleText="e.g. 120"
@@ -2481,26 +2442,9 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <InputField
-                      id="servedLast12Months"
-                      label="Pessoas diferentes atendidas nos últimos 12 meses"
-                      value={formData.servedLast12Months}
-                      onChange={(e) => setFormData(prev => ({ ...prev, servedLast12Months: e.target.value.replace(/\D/g, '') }))}
-                      exampleText="Ex: 150"
-                      helpText={badgeForField('servedLast12Months') as any}
-                    />
-
-                    <InputField
-                      id="totalAttendancesLast12Months"
-                      label="Quantidade total de participações ou atividades"
-                      value={formData.totalAttendancesLast12Months}
-                      onChange={(e) => setFormData(prev => ({ ...prev, totalAttendancesLast12Months: e.target.value.replace(/\D/g, '') }))}
-                      exampleText="Ex: 1440"
-                    />
-
                     <SelectField
                       id="isEstimateOrExact"
-                      label="A quantidade final acima é exata ou estimada?"
+                      label="A quantidade informada de pessoas atendidas é exata ou estimada?"
                       options={[
                         { value: 'exact', label: 'Número exato registrado em fichas' },
                         { value: 'estimate', label: 'Estimativa consolidada baseada em eventos' }
@@ -2534,15 +2478,6 @@ export default function App() {
                         ? 'Fale sobre o impacto prático na vida dos participantes (ex: melhora na autoestima, aprendizado de novas tarefas, integração da vizinhança)...'
                         : 'Descreva de forma estruturada os resultados obtidos (quantitativos e qualitativos) no último ciclo...'
                       }
-                      required
-                    />
-
-                    <TextAreaField
-                      id="beneficiaryProfile"
-                      label="Perfil detalhado dos beneficiários atendidos *"
-                      value={formData.beneficiaryProfile || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, beneficiaryProfile: e.target.value }))}
-                      placeholder="Ex: Jovens de 15 a 24 anos, residentes de bairros periféricos, em situação de vulnerabilidade social ou desemprego..."
                       required
                     />
 
@@ -2679,13 +2614,45 @@ export default function App() {
                         required
                       />
                       {(formData.hasTestimonials === true || formData.hasTestimonials === 'sim') && (
-                        <YesNoField
-                          id="authorizeTestimonialsPublishing"
-                          label="Autoriza a divulgação desses depoimentos e casos de sucesso?"
-                          value={formData.authorizeTestimonialsPublishing}
-                          onChange={(val) => setFormData(prev => ({ ...prev, authorizeTestimonialsPublishing: val === 'sim' }))}
-                          required
-                        />
+                        <>
+                          <div className="sm:col-span-2 space-y-4 pt-2">
+                            <TextAreaField
+                              id="testimonialsText"
+                              label="Digite aqui o relatório, caso de sucesso ou depoimento"
+                              value={formData.testimonialsText || ''}
+                              onChange={(e) => setFormData(prev => ({ ...prev, testimonialsText: e.target.value }))}
+                              placeholder="Compartilhe uma história que mostre o impacto da iniciativa..."
+                            />
+
+                            <div className="space-y-1">
+                              <label className="block text-xs font-extrabold text-brand-blue uppercase tracking-wide">
+                                Ou anexe um arquivo (doc, pdf ou imagem)
+                              </label>
+                              <div className="flex items-center gap-3 mt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => simulateFileUpload('testimonialsFile', 'depoimentos_sucesso.pdf')}
+                                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition border border-slate-200"
+                                >
+                                  Escolher Arquivo...
+                                </button>
+                                <span className="text-xs text-slate-500 font-mono">
+                                  {formData.simulatedFiles?.testimonialsFile || 'Nenhum arquivo selecionado'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="sm:col-span-2 pt-2 border-t border-slate-100 mt-2">
+                            <YesNoField
+                              id="authorizeTestimonialsPublishing"
+                              label="Autoriza a divulgação desses depoimentos e casos de sucesso?"
+                              value={formData.authorizeTestimonialsPublishing}
+                              onChange={(val) => setFormData(prev => ({ ...prev, authorizeTestimonialsPublishing: val === 'sim' }))}
+                              required
+                            />
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
