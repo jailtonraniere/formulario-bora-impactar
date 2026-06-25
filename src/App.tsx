@@ -14,11 +14,12 @@ import { OrganizationData, FormStatus, ImpactResult, Opportunity } from './types
 import { INITIAL_ORGANIZATIONS, EMPTY_ORGANIZATION, LIST_OF_CAUSES, LIST_OF_NEIGHBORHOODS, COOPERATIVE_OPPORTUNITIES_CATEGORIES } from './data/mockData';
 import { storageService } from './services/storage';
 import { apiService } from './services/api';
-import { RecifeLogo, BoraImpactarLogo } from './components/Logo';
+import { RecifeLogo, BoraImpactarLogo, LogosCombinadas } from './components/Logo';
 import { InputField, TextAreaField, SelectField, ProgressBar, PhoneMaskHelper, CnpjMaskHelper, CepMaskHelper, YesNoField } from './components/FormFields';
 import { SearchSection } from './components/SearchSection';
 import { OdsEsgGov } from './components/OdsEsgGov';
 import { ReviewTab } from './components/ReviewTab';
+import { AdminPanel } from './components/AdminPanel';
 import { isFieldVisible, isFieldRequired } from './config/formRules';
 
 export interface StepProgressInfo {
@@ -416,7 +417,7 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
 
 export default function App() {
   // State definitions
-  const [currentView, setCurrentView] = useState<'home' | 'search' | 'formalization_ask' | 'diagnostic' | 'form' | 'success'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'search' | 'formalization_ask' | 'diagnostic' | 'form' | 'success' | 'admin'>('home');
   const [organizations, setOrganizations] = useState<OrganizationData[]>([]);
   const [formData, setFormData] = useState<OrganizationData>({ ...EMPTY_ORGANIZATION });
   const [originalData, setOriginalData] = useState<OrganizationData | null>(null);
@@ -563,8 +564,11 @@ export default function App() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
+    const isAdmin = urlParams.get('admin') === 'true';
 
-    if (token) {
+    if (isAdmin) {
+      setCurrentView('admin');
+    } else if (token) {
       setCurrentToken(token);
       loadDraftByToken(token, list);
     } else {
@@ -998,38 +1002,40 @@ export default function App() {
     <div className="min-h-screen bg-bg-light select-none font-sans flex flex-col pt-0 pb-16">
       
       {/* GLOBAL HEADER BAR */}
-      <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-sm px-6 py-3 select-none">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3 font-sans">
-              <span className="font-extrabold text-base sm:text-lg text-brand-blue tracking-tight">Bora Impactar</span>
-              <span className="text-slate-300 font-light">|</span>
-              <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider">Atualização Cadastral</span>
-            </div>
-            {currentView === 'form' && (
-              <div className="hidden lg:flex items-center gap-2 bg-emerald-50 border border-emerald-100/60 px-3 py-1 rounded-full">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className={`text-[10px] font-bold text-emerald-800 tracking-wide uppercase ${isAutoSavedBlinking ? 'text-brand-cyan scale-105 transition-all' : ''}`}>
-                  Rascunho salvo no navegador
-                </span>
+      {currentView !== 'admin' && (
+        <header className="bg-white border-b border-slate-200/80 sticky top-0 z-40 shadow-sm px-4 sm:px-6 py-2.5 select-none">
+          <div className="max-w-6xl mx-auto flex justify-between items-center">
+            <div className="flex items-center gap-4 sm:gap-8">
+              <LogosCombinadas size="sm" className="h-8 sm:h-10 md:h-12" />
+              <div className="flex items-center gap-2">
+                <span className="hidden sm:inline text-slate-300 font-light text-lg">|</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-wider leading-tight">Atualização<br className="sm:hidden" /> Cadastral</span>
               </div>
-            )}
+              {currentView === 'form' && (
+                <div className="hidden lg:flex items-center gap-2 bg-emerald-50 border border-emerald-100/60 px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className={`text-[10px] font-bold text-emerald-800 tracking-wide uppercase ${isAutoSavedBlinking ? 'text-brand-cyan scale-105 transition-all' : ''}`}>
+                    Rascunho salvo no navegador
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {currentView !== 'home' && (
+                <button
+                  onClick={() => setShowExitModal(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 bg-white hover:bg-red-50 hover:text-red-650 hover:border-red-100 rounded-xl text-xs font-bold transition select-none shadow-sm cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sair e Continuar Depois</span>
+                  <span className="sm:hidden">Sair</span>
+                </button>
+              )}
+            </div>
           </div>
-          
-          <div className="flex items-center gap-3">
-            {currentView !== 'home' && (
-              <button
-                onClick={() => setShowExitModal(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 bg-white hover:bg-red-50 hover:text-red-650 hover:border-red-100 rounded-xl text-xs font-bold transition select-none shadow-sm cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Sair e Continuar Depois</span>
-                <span className="sm:hidden">Sair</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* DRAFT DETECTED MODAL */}
       {showDraftModal && (
@@ -1202,11 +1208,26 @@ export default function App() {
         </div>
       )}
 
+      {/* ADMIN PANEL RENDERING OUTSIDE RESTRICTIVE MAIN */}
+      {currentView === 'admin' && (
+        <div className="w-full max-w-[95%] xl:max-w-[1450px] mx-auto px-4 py-6 flex-1 flex flex-col">
+          <AdminPanel
+            onBack={() => setCurrentView('home')}
+            organizations={storageService.getOrganizations()}
+            onRefreshList={() => {
+              const list = storageService.getPublicSearchList();
+              setOrganizations(list);
+            }}
+          />
+        </div>
+      )}
+
       {/* MAIN VIEWPORT CARD ROUTING */}
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 mt-2 sm:mt-4">
-        
-        {/* VIEW 1: HOME PANEL */}
-        {currentView === 'home' && (
+      {currentView !== 'admin' && (
+        <main className="flex-1 w-full max-w-5xl mx-auto px-4 mt-2 sm:mt-4">
+
+          {/* VIEW 1: HOME PANEL */}
+          {currentView === 'home' && (
           <div className="flex flex-col items-center justify-center py-2 sm:py-4">
             <SearchSection
               organizations={organizations}
@@ -3225,7 +3246,8 @@ export default function App() {
 
 
 
-      </main>
+        </main>
+      )}
 
       {/* SUMMARY MODAL VIEW ON SUCCESS */}
       {showSummaryModal && (
