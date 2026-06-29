@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { HelpCircle, Star, Sparkles, CheckCircle } from 'lucide-react';
 import { OrganizationData } from '../types';
+import { isFieldVisible, isFieldRequired } from '../config/formRules';
 import { SDG_DETAILS } from '../data/mockData';
 
 interface OdsEsgGovProps {
@@ -123,20 +124,25 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
           <button
             type="button"
             onClick={() => setActiveOdsTab('selection')}
-            className={`px-4 py-2.5 font-bold text-xs border-b-2 transition ${
+            className={`px-4 py-2.5 font-bold text-xs border-b-2 transition flex items-center gap-1.5 ${
               activeOdsTab === 'selection' 
                 ? 'border-brand-blue text-brand-blue' 
                 : 'border-transparent text-slate-500 hover:text-brand-blue'
             }`}
           >
-            1. Selecionar ODS Atendidos ({data.selectedOdsList?.length || 0} de 5)
+            <span>1. Selecionar ODS Atendidos ({data.selectedOdsList?.length || 0} de 5)</span>
+            {isFieldRequired('selectedOdsList', data.formalizationStatus) && (!data.selectedOdsList || data.selectedOdsList.length === 0) && (
+              <span className="text-[8px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none inline-block">
+                Pendente
+              </span>
+            )}
           </button>
           
           <button
             type="button"
             onClick={() => setActiveOdsTab('priorities')}
             disabled={!data.selectedOdsList || data.selectedOdsList.length === 0}
-            className={`px-4 py-2.5 font-bold text-xs border-b-2 transition ${
+            className={`px-4 py-2.5 font-bold text-xs border-b-2 transition flex items-center gap-1.5 ${
               !data.selectedOdsList || data.selectedOdsList.length === 0
                 ? 'opacity-40 cursor-not-allowed'
                 : activeOdsTab === 'priorities'
@@ -144,7 +150,12 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
                   : 'border-transparent text-slate-500 hover:text-brand-blue'
             }`}
           >
-            2. Definir Prioritários ({data.priorityOdsList?.length || 0} de 3)
+            <span>2. Definir Prioritários ({data.priorityOdsList?.length || 0} de 3)</span>
+            {isFieldRequired('priorityOdsList', data.formalizationStatus) && (!data.priorityOdsList || data.priorityOdsList.length === 0) && (
+              <span className="text-[8px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none inline-block">
+                Pendente
+              </span>
+            )}
           </button>
         </div>
 
@@ -211,6 +222,11 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
                       <div className="mt-1">
                         <label className="text-[11px] font-bold text-brand-blue block mb-1.5 uppercase tracking-wide">
                           Como sua organização contribui ativamente para esse ODS? *
+                          {!(data.odsExplanations?.[ods.id]?.trim()) && (
+                            <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+                              Pendente
+                            </span>
+                          )}
                         </label>
                         <textarea
                           rows={2.5}
@@ -229,35 +245,7 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
         )}
       </div>
 
-      {/* ODS Specific Goals Dropdown (Optional) */}
-      <div className="border-t border-slate-100 pt-5 space-y-3.5">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="odsSpecificGoalsOptional" className="text-xs sm:text-sm font-bold text-brand-blue block">
-            Qual meta específica desse ODS é impactada? (Opcional)
-          </label>
-          <p className="text-[11px] text-slate-500">
-            Caso sua equipe conheça as metas técnicas internas da ONU para os ODSs escolhidos, informe-as abaixo. Caso contrário, selecione "Não sei informar".
-          </p>
-        </div>
-        <select
-          id="odsSpecificGoalsOptional"
-          value={data.odsSpecificGoalsOptional || ''}
-          onChange={(e) => onChange({ odsSpecificGoalsOptional: e.target.value })}
-          className="w-full px-4 py-3 rounded-xl border text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan cursor-pointer border-slate-200/80 hover:border-slate-350"
-        >
-          <option value="">Selecione uma meta específica...</option>
-          {SDG_DETAILS.filter(ods => data.selectedOdsList?.includes(ods.id)).map(ods => (
-            <optgroup key={ods.id} label={`ODS ${ods.num} - ${ods.name}`}>
-              {ods.targets?.map((target) => (
-                <option key={target} value={target}>
-                  {target}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-          <option value="nao_sei">Não sei informar</option>
-        </select>
-      </div>
+
 
       {/* 2. ESG COLUMN CHECKBOXES */}
       {data.formalizationStatus !== 'no_cnpj' && (
@@ -362,34 +350,44 @@ export const OdsEsgGov: React.FC<OdsEsgGovProps> = ({
           </p>
 
           <div className="space-y-3">
-            {GOV_QUESTIONS.map(({ key, label }) => (
-              <div key={key} className="p-4 bg-white border border-slate-200/60 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 shadow-sm hover:border-slate-350 hover:shadow-md transition-all duration-200">
-                <span className="text-xs sm:text-sm font-bold text-brand-blue flex items-start gap-1.5">
-                  {label}
-                  {badgeForField(key)}
-                </span>
-                
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {GOV_OPTIONS.map((opt) => {
-                    const isChecked = data[key] === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => onChange({ [key]: opt.value })}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-200 select-none ${
-                          isChecked
-                            ? 'bg-brand-blue text-white border-brand-blue shadow-sm shadow-indigo-500/10'
-                            : 'bg-slate-50 text-slate-655 border-slate-200/80 hover:bg-slate-100/80'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
+            {GOV_QUESTIONS.map(({ key, label }) => {
+              const isRequired = isFieldRequired(key, data.formalizationStatus);
+              const isPending = isRequired && !data[key];
+              return (
+                <div key={key} className="p-4 bg-white border border-slate-200/60 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 shadow-sm hover:border-slate-350 hover:shadow-md transition-all duration-200">
+                  <span className="text-xs sm:text-sm font-bold text-brand-blue flex items-start gap-1.5 flex-wrap">
+                    <span>{label}</span>
+                    {isRequired && <span className="text-color-error" aria-hidden="true">*</span>}
+                    {isPending && (
+                      <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+                        Pendente
+                      </span>
+                    )}
+                    {badgeForField(key)}
+                  </span>
+                  
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    {GOV_OPTIONS.map((opt) => {
+                      const isChecked = data[key] === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => onChange({ [key]: opt.value })}
+                          className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-200 select-none ${
+                            isChecked
+                              ? 'bg-brand-blue text-white border-brand-blue shadow-sm shadow-indigo-500/10'
+                              : 'bg-slate-50 text-slate-655 border-slate-200/80 hover:bg-slate-100/80'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Support Request Flag */}

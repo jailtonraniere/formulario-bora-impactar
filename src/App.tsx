@@ -7,7 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, Phone, Sparkles, Plus, Trash2, ArrowLeft, ArrowRight, Save, 
   LogOut, HelpCircle, Check, MapPin, CheckCircle2, ChevronDown, ChevronUp, 
-  Info, AlertCircle, FileText, Download, RotateCcw, ShieldCheck, Loader2 
+  Info, AlertCircle, FileText, Download, RotateCcw, ShieldCheck, Loader2,
+  Eye, EyeOff
 } from 'lucide-react';
 
 import { OrganizationData, FormStatus, ImpactResult, Opportunity } from './types';
@@ -20,6 +21,7 @@ import { SearchSection } from './components/SearchSection';
 import { OdsEsgGov } from './components/OdsEsgGov';
 import { ReviewTab } from './components/ReviewTab';
 import { AdminPanel } from './components/AdminPanel';
+import { LoginScreen } from './components/LoginScreen';
 import { isFieldVisible, isFieldRequired } from './config/formRules';
 
 export interface StepProgressInfo {
@@ -53,6 +55,10 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
     }
 
     const val = data[fieldId as keyof OrganizationData];
+    if (fieldId === 'audiences') {
+      if (!isArrayFilled(val as any[])) return false;
+      return !(val as string[]).includes('Outro');
+    }
     if (Array.isArray(val)) {
       return isArrayFilled(val);
     }
@@ -417,7 +423,7 @@ export function getStepCompletionData(data: OrganizationData): StepProgressInfo[
 
 export default function App() {
   // State definitions
-  const [currentView, setCurrentView] = useState<'home' | 'search' | 'formalization_ask' | 'diagnostic' | 'form' | 'success' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'login' | 'search' | 'formalization_ask' | 'diagnostic' | 'form' | 'success' | 'admin'>('home');
   const [organizations, setOrganizations] = useState<OrganizationData[]>([]);
   const [formData, setFormData] = useState<OrganizationData>({ ...EMPTY_ORGANIZATION });
   const [originalData, setOriginalData] = useState<OrganizationData | null>(null);
@@ -427,6 +433,13 @@ export default function App() {
   const [isLoadingToken, setIsLoadingToken] = useState<boolean>(false);
   const [tokenError, setTokenError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  
+  // Login / New Registration States
+  const [preSelectedOrgForLogin, setPreSelectedOrgForLogin] = useState<any>(null);
+  const [newRegEmail, setNewRegEmail] = useState<string>('');
+  const [newRegPassword, setNewRegPassword] = useState<string>('');
+  const [newRegPasswordConfirm, setNewRegPasswordConfirm] = useState<string>('');
+  const [showNewRegPassword, setShowNewRegPassword] = useState<boolean>(false);
   
   // Wizards
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -510,10 +523,146 @@ export default function App() {
   }, [formData.cep]);
 
   // Operating hours builder helper states
-  const [hoursSelectedDays, setHoursSelectedDays] = useState<string[]>(['Seg', 'Ter', 'Qua', 'Qui', 'Sex']);
-  const [hoursStartTime, setHoursStartTime] = useState<string>('08:00');
-  const [hoursEndTime, setHoursEndTime] = useState<string>('17:00');
-  const [showHoursBuilder, setShowHoursBuilder] = useState<boolean>(false);
+  interface HoursPeriod {
+    days: string[];
+    startTime: string;
+    endTime: string;
+  }
+
+  // Helper to parse consolidated operating hours string into state
+  const parseOperatingHours = (hoursStr: string | undefined): { periods: HoursPeriod[]; underDemand: boolean } => {
+    if (!hoursStr) {
+      return {
+        periods: [{ days: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'], startTime: '08:00', endTime: '17:00' }],
+        underDemand: false
+      };
+    }
+
+    if (hoursStr === 'Atendimento sob agendamento prévio ou voltado a projetos') {
+      return {
+        periods: [{ days: [], startTime: '08:00', endTime: '17:00' }],
+        underDemand: true
+      };
+    }
+
+    const periods: HoursPeriod[] = [];
+    const parts = hoursStr.split('; ');
+
+    const reverseDayMap: Record<string, string> = {
+      'segunda': 'Seg', 'terça': 'Ter', 'quarta': 'Qua', 'quinta': 'Qui', 'sexta': 'Sex', 'sábado': 'Sáb', 'domingo': 'Dom',
+      'seg': 'Seg', 'ter': 'Ter', 'qua': 'Qua', 'qui': 'Qui', 'sex': 'Sex', 'sáb': 'Sáb', 'dom': 'Dom',
+      'segundas': 'Seg', 'terças': 'Ter', 'quartas': 'Qua', 'quintas': 'Qui', 'sextas': 'Sex', 'sábados': 'Sáb', 'domingos': 'Dom',
+      'segunda-feira': 'Seg', 'terça-feira': 'Ter', 'quarta-feira': 'Qua', 'quinta-feira': 'Qui', 'sexta-feira': 'Sex'
+    };
+
+    for (const part of parts) {
+      const match = part.match(/(.+?),\s+das\s+(\d{2}:\d{2})\s+às\s+(\d{2}:\d{2})/i);
+      if (match) {
+        const daysPart = match[1].toLowerCase().trim();
+        const startTime = match[2];
+        const endTime = match[3];
+        let days: string[] = [];
+
+        if (daysPart.includes(' a ')) {
+          const daysRange = daysPart.split(' a ');
+          if (daysRange.length === 2) {
+            const startDay = reverseDayMap[daysRange[0].trim()] || 'Seg';
+            const endDay = reverseDayMap[daysRange[1].trim()] || 'Sex';
+            const allDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+            const startIdx = allDays.indexOf(startDay);
+            const endIdx = allDays.indexOf(endDay);
+            if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
+              days = allDays.slice(startIdx, endIdx + 1);
+            } else {
+              days = [startDay, endDay];
+            }
+          }
+        } else if (daysPart.includes(' e ')) {
+          days = daysPart.split(' e ').map(d => reverseDayMap[d.trim()]).filter(Boolean);
+        } else {
+          days = daysPart.split(',').map(d => reverseDayMap[d.trim()]).filter(Boolean);
+        }
+
+        periods.push({ days, startTime, endTime });
+      }
+    }
+
+    if (periods.length === 0) {
+      return {
+        periods: [{ days: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'], startTime: '08:00', endTime: '17:00' }],
+        underDemand: false
+      };
+    }
+
+    return { periods, underDemand: false };
+  };
+
+  const formatSinglePeriod = (period: HoursPeriod): string => {
+    if (period.days.length === 0) return '';
+    
+    let daysStr = '';
+    const weekdays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+    const weekends = ['Sáb', 'Dom'];
+    const allDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    
+    const orderedDays = allDays.filter(d => period.days.includes(d));
+    
+    const hasAll = allDays.every(d => period.days.includes(d));
+    const hasWeekdays = weekdays.every(d => period.days.includes(d)) && weekdays.length === period.days.length;
+    const hasWeekends = weekends.every(d => period.days.includes(d)) && weekends.length === period.days.length;
+    
+    if (hasAll) {
+      daysStr = 'Segunda a domingo';
+    } else if (hasWeekdays) {
+      daysStr = 'Segunda a sexta';
+    } else if (hasWeekends) {
+      daysStr = 'Sábados e domingos';
+    } else {
+      const dayMap: Record<string, string> = {
+        'Seg': 'Segunda-feira', 'Ter': 'Terça-feira', 'Qua': 'Quarta-feira', 'Qui': 'Quinta-feira', 'Sex': 'Sexta-feira', 'Sáb': 'Sábado', 'Dom': 'Domingo'
+      };
+      
+      if (orderedDays.length === 2 && orderedDays[0] === 'Seg' && orderedDays[1] === 'Sáb') {
+        daysStr = 'Segunda a sábado';
+      } else {
+        daysStr = orderedDays.map(d => dayMap[d] || d).join(', ');
+      }
+    }
+    
+    return `${daysStr}, das ${period.startTime} às ${period.endTime}`;
+  };
+
+  const [hoursPeriods, setHoursPeriods] = useState<HoursPeriod[]>([
+    { days: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'], startTime: '08:00', endTime: '17:00' }
+  ]);
+  const [hoursUnderDemand, setHoursUnderDemand] = useState<boolean>(false);
+
+  const handleUpdatePeriods = (periods: HoursPeriod[], underDemand: boolean) => {
+    if (underDemand) {
+      setFormData(prev => ({ ...prev, operatingHours: 'Atendimento sob agendamento prévio ou voltado a projetos' }));
+      return;
+    }
+    const consolidated = periods
+      .map(formatSinglePeriod)
+      .filter(Boolean)
+      .join('; ');
+    setFormData(prev => ({ ...prev, operatingHours: consolidated }));
+  };
+
+  // Sync periods state when formData.operatingHours changes from external source (like loading a draft or selecting an organization)
+  useEffect(() => {
+    const { periods, underDemand } = parseOperatingHours(formData.operatingHours);
+    
+    // Check if the periods or underDemand have changed to avoid unnecessary state updates
+    const currentConsolidated = underDemand 
+      ? 'Atendimento sob agendamento prévio ou voltado a projetos' 
+      : hoursPeriods.map(formatSinglePeriod).filter(Boolean).join('; ');
+      
+    if (formData.operatingHours !== currentConsolidated) {
+      setHoursPeriods(periods);
+      setHoursUnderDemand(underDemand);
+    }
+  }, [formData.operatingHours, hoursPeriods]);
 
   // Dynamic step progress metrics
   const stepProgressList = getStepCompletionData(formData);
@@ -530,14 +679,20 @@ export default function App() {
       if (response.success && response.data) {
         setFormData(response.data.dados);
         if (response.data.dados.id) {
-          setIsNewRegistration(false);
-          const matchedOrg = orgsList.find(o => o.id === response.data!.dados.id);
-          if (matchedOrg) {
-            setOriginalData(matchedOrg);
+          const isPreCreated = response.data.dados.id.startsWith('org_pre_');
+          if (isPreCreated) {
+            setIsNewRegistration(true);
+            setOriginalData(null);
           } else {
-            const backendOriginal = (response.data as any).originalDados;
-            if (backendOriginal) {
-              setOriginalData(backendOriginal);
+            setIsNewRegistration(false);
+            const matchedOrg = orgsList.find(o => o.id === response.data!.dados.id);
+            if (matchedOrg) {
+              setOriginalData(matchedOrg);
+            } else {
+              const backendOriginal = (response.data as any).originalDados;
+              if (backendOriginal) {
+                setOriginalData(backendOriginal);
+              }
             }
           }
         } else {
@@ -558,23 +713,28 @@ export default function App() {
 
   // Load organizations and check for existing drafts or URL token on mount
   useEffect(() => {
-    // Use the public search list for the search dropdown (fast, minimal data)
-    const list = storageService.getPublicSearchList();
-    setOrganizations(list);
-
+    const path = window.location.pathname.toLowerCase();
     const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    const isAdmin = urlParams.get('admin') === 'true';
+    const isAdmin = path === '/admin' || urlParams.get('admin') === 'true';
 
     if (isAdmin) {
+      const fullList = storageService.getOrganizations();
+      setOrganizations(fullList);
       setCurrentView('admin');
-    } else if (token) {
-      setCurrentToken(token);
-      loadDraftByToken(token, list);
     } else {
-      const activeDraft = storageService.getCurrentDraft();
-      if (activeDraft) {
-        setShowDraftModal(true);
+      // Use the public search list for the search dropdown (fast, minimal data)
+      const list = storageService.getPublicSearchList();
+      setOrganizations(list);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+
+      if (token) {
+        setCurrentToken(token);
+        loadDraftByToken(token, list);
+      } else {
+        // Safe check: do not auto-restore draft anonymously to prevent cross-org leaks.
+        // Drafts are securely loaded upon login.
       }
     }
   }, []);
@@ -620,6 +780,18 @@ export default function App() {
     setShowDraftModal(false);
   };
 
+  const handleLeaveAdmin = () => {
+    window.history.pushState(null, '', '/');
+    const list = storageService.getPublicSearchList();
+    setOrganizations(list);
+    setCurrentView('home');
+  };
+
+  const handleRefreshOrganizations = () => {
+    const fullList = storageService.getOrganizations();
+    setOrganizations(fullList);
+  };
+
   // State to track if it's a completely new registration or edit progress
   const [isNewRegistration, setIsNewRegistration] = useState<boolean>(true);
 
@@ -645,8 +817,13 @@ export default function App() {
   // Initiates new organization workflow
   const handleStartNewRegisterFlow = () => {
     setOriginalData(null);
-    setFormData({ ...EMPTY_ORGANIZATION });
+    const tempId = `BI-TEMP-${Math.floor(100000 + Math.random() * 900000)}`;
+    setFormData({ ...EMPTY_ORGANIZATION, id: tempId });
     setIsNewRegistration(true);
+    setCurrentToken(`mock_token_${tempId}_${Date.now()}`); // Initialize token to allow immediate draft saving
+    setNewRegEmail('');
+    setNewRegPassword('');
+    setNewRegPasswordConfirm('');
     setCurrentView('formalization_ask');
   };
 
@@ -737,9 +914,51 @@ export default function App() {
   };
 
   // Generic step transitions
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     // Form validation on next step removed to allow free navigation
     setValidationErrors([]);
+    
+    if (currentStep === 1 && isNewRegistration) {
+      // Validate new registration credentials
+      if (!newRegEmail.trim() || !newRegEmail.includes('@')) {
+        setValidationErrors(['Por favor, insira um e-mail de login válido.']);
+        return;
+      }
+      if (!newRegPassword || newRegPassword.length < 6) {
+        setValidationErrors(['A senha deve ter pelo menos 6 caracteres.']);
+        return;
+      }
+      if (newRegPassword !== newRegPasswordConfirm) {
+        setValidationErrors(['As senhas informadas não coincidem.']);
+        return;
+      }
+      
+      // Register credentials on backend / simulation
+      setIsSubmitting(true);
+      try {
+        const response = await apiService.registerNewCredentials(
+          formData.id || '',
+          newRegEmail,
+          newRegPassword
+        );
+        
+        if (!response.success) {
+          setValidationErrors([response.error?.message || 'Erro ao registrar credenciais.']);
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Auto-populate email field in Step 2 with the registration email
+        setFormData(prev => ({ ...prev, email: newRegEmail }));
+      } catch (err) {
+        setValidationErrors(['Erro de rede ao cadastrar credenciais. Tente novamente.']);
+        setIsSubmitting(false);
+        return;
+      } finally {
+        setIsSubmitting(false);
+      }
+    }
+    
     if (currentStep < totalSteps) {
       setCurrentStep(prev => prev + 1);
       window.scrollTo(0, 0);
@@ -770,15 +989,17 @@ export default function App() {
   // Submission validation
   const validateForm = (): boolean => {
     const list: string[] = [];
-    if (!formData.name.trim()) list.push('Nome oficial da organização é obrigatório.');
-    if (formData.formalizationStatus === 'with_cnpj' && !formData.cnpj) {
-      list.push('Para organizações formalizadas, o CNPJ é obrigatório.');
-    }
-    if (!formData.legalRepName.trim()) list.push('Nome do responsável legal é obrigatório.');
-    if (!formData.phone.trim()) list.push('Telefone de contato é obrigatório.');
-    if (!formData.email.trim()) list.push('E-mail institucional é obrigatório e precisa de formato válido.');
+
+    // Coleta todas as pendências obrigatórias das etapas 1 a 8
+    stepProgressList.forEach(stepInfo => {
+      if (stepInfo.step >= 1 && stepInfo.step <= 8) {
+        stepInfo.missing.forEach(label => {
+          list.push(`[Etapa ${stepInfo.step} - ${stepInfo.name}] O campo "${label}" está pendente.`);
+        });
+      }
+    });
     
-    // Check compulsory consent boxes on Step 10
+    // Check compulsory consent boxes on Step 9 (Review)
     if (!formData.consentTrueInformation) list.push('É necessário declarar que as informações fornecidas são verdadeiras.');
     if (!formData.consentCatalogPublishing) list.push('É necessário autorizar a gestão de dados para publicação no catálogo.');
     
@@ -1115,7 +1336,11 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setShowExitModal(false);
+                  setCurrentToken('');
+                  setFormData({ ...EMPTY_ORGANIZATION });
+                  setOriginalData(null);
                   setCurrentView('home');
+                  storageService.clearCurrentDraft(); // Clear active memory draft
                 }}
                 className="py-2.5 px-4 bg-brand-blue hover:bg-brand-cyan text-white rounded-xl text-xs font-bold text-center transition shadow-md"
               >
@@ -1235,14 +1460,34 @@ export default function App() {
                 // Load full private data for this org (from the private generated file)
                 const privateOrgs = storageService.getOrganizations();
                 const fullOrg = privateOrgs.find((o: any) => o.id === publicOrg.id);
-                // Merge on top of EMPTY_ORGANIZATION so all fields have safe defaults
                 const safeOrg = { ...EMPTY_ORGANIZATION, ...(fullOrg || publicOrg) };
-                handleSelectOrganization(safeOrg);
+                setPreSelectedOrgForLogin(safeOrg);
+                setCurrentView('login');
               }}
               onNewRegister={handleStartNewRegisterFlow}
               onHelpNoCnpj={() => setShowHelpNoCnpj(true)}
+              onGoToLogin={() => {
+                setPreSelectedOrgForLogin(null);
+                setCurrentView('login');
+              }}
             />
           </div>
+        )}
+
+        {/* VIEW: LOGIN SCREEN */}
+        {currentView === 'login' && (
+          <LoginScreen
+            organizations={organizations}
+            initialSelectedOrg={preSelectedOrgForLogin}
+            onLoginSuccess={(org, token) => {
+              setCurrentToken(token);
+              loadDraftByToken(token, organizations);
+            }}
+            onBack={() => {
+              setPreSelectedOrgForLogin(null);
+              setCurrentView('home');
+            }}
+          />
         )}
 
         {/* VIEW 2: ASK FORMALIZATION FOR NEW REGISTER */}
@@ -1748,7 +1993,7 @@ export default function App() {
                     <div className="flex flex-col space-y-2">
                       <InputField
                         id="foundationYear"
-                        label="Ano de fundação / início das de atuação"
+                        label="Ano de fundação / início de atuação"
                         value={formData.foundationYear}
                         onChange={(e) => setFormData(prev => ({ ...prev, foundationYear: e.target.value.replace(/\D/g, '') }))}
                         maxLength={4}
@@ -1756,222 +2001,184 @@ export default function App() {
                         helpText={badgeForField('foundationYear') as any}
                       />
                       
-                      {/* Interactive year suggestions and real-time age calculator */}
-                      <div className="mt-1 bg-slate-50 border border-slate-100 p-2.5 rounded-xl space-y-2 select-none">
-                        <div className="flex flex-wrap gap-1 items-center">
-                          <span className="text-[10px] text-gray-500 font-medium mr-1">Preenchimento rápido:</span>
-                          {[2026, 2025, 2024, 2023, 2022, 2020, 2018, 2015, 2010, 2005, 2000, 1995, 1990].map((y) => (
-                            <button
-                              key={y}
-                              type="button"
-                              onClick={() => setFormData(prev => ({ ...prev, foundationYear: String(y) }))}
-                              className={`text-[10px] font-mono px-2 py-1 rounded-md border transition cursor-pointer ${
-                                formData.foundationYear === String(y)
-                                  ? 'bg-brand-blue text-white border-brand-blue font-bold shadow-sm'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                              }`}
-                            >
-                              {y}
-                            </button>
-                          ))}
-                        </div>
-                        
-                        {formData.foundationYear && (() => {
-                          const yearNum = parseInt(formData.foundationYear, 10);
-                          const currentYear = 2026;
-                          if (isNaN(yearNum)) return null;
-                          if (yearNum > currentYear) {
-                            return (
-                              <p className="text-[11px] font-medium text-red-500 flex items-center gap-1">
-                                ⚠️ Atenção: O ano informado ({yearNum}) está no futuro. Por favor, confira o preenchimento.
-                              </p>
-                            );
-                          }
-                          if (yearNum < 1900) {
-                            return (
-                              <p className="text-[11px] font-medium text-amber-600 flex items-center gap-1">
-                                ⚠️ Verifique se o ano {yearNum} está correto para uma organização ativa.
-                              </p>
-                            );
-                          }
-                          const yearsDelta = currentYear - yearNum;
+                      {/* Real-time age calculator */}
+                      {formData.foundationYear && (() => {
+                        const yearNum = parseInt(formData.foundationYear, 10);
+                        const currentYear = 2026;
+                        if (isNaN(yearNum)) return null;
+                        if (yearNum > currentYear) {
                           return (
-                            <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 bg-emerald-50/50 p-1.5 rounded border border-emerald-100/30">
-                              ✨ A iniciativa tem aproximadamente <strong className="underline font-bold">{yearsDelta === 0 ? 'menos de 1 ano' : `${yearsDelta} ${yearsDelta === 1 ? 'ano' : 'anos'}`}</strong> de atuação histórica reconhecida no Recife!
+                            <p className="text-[11px] font-medium text-red-500 flex items-center gap-1 mt-1">
+                              ⚠️ Atenção: O ano informado ({yearNum}) está no futuro. Por favor, confira o preenchimento.
                             </p>
                           );
-                        })()}
-                      </div>
+                        }
+                        if (yearNum < 1900) {
+                          return (
+                            <p className="text-[11px] font-medium text-amber-600 flex items-center gap-1 mt-1">
+                              ⚠️ Verifique se o ano {yearNum} está correto para uma organização ativa.
+                            </p>
+                          );
+                        }
+                        const yearsDelta = currentYear - yearNum;
+                        return (
+                          <p className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1 bg-emerald-50/50 p-1.5 rounded border border-emerald-100/30 mt-1">
+                            ✨ A iniciativa tem aproximadamente <strong className="underline font-bold">{yearsDelta === 0 ? 'menos de 1 ano' : `${yearsDelta} ${yearsDelta === 1 ? 'ano' : 'anos'}`}</strong> de atuação histórica reconhecida no Recife!
+                          </p>
+                        );
+                      })()}
                     </div>
 
-                    <div className="flex flex-col space-y-3 sm:col-span-2 border border-slate-100 bg-slate-50/30 p-4 rounded-xl">
-                      <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                        <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">⌚ Horário de Atendimento e Funcionamento</span>
+                    <div className="flex flex-col space-y-4 sm:col-span-2 border border-slate-150 bg-slate-50/50 p-4.5 rounded-2xl shadow-sm">
+                      <div className="flex justify-between items-center border-b border-slate-150 pb-2">
+                        <span className="text-xs font-black text-brand-blue uppercase tracking-wider block">⌚ Horários de Funcionamento</span>
+                        {hoursUnderDemand && (
+                          <span className="text-[10px] font-bold text-brand-cyan bg-sky-50 border border-sky-100 px-2 py-0.5 rounded-full">
+                            🗓️ Sob Demanda / Agendamento Ativo
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        {hoursPeriods.map((period, idx) => (
+                          <div 
+                            key={idx} 
+                            className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 relative shadow-xs hover:border-slate-350 transition-all duration-200"
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                                Período {idx + 1}
+                              </span>
+                              {hoursPeriods.length > 1 && (
+                                <button
+                                  type="button"
+                                  disabled={hoursUnderDemand}
+                                  onClick={() => {
+                                    const updated = hoursPeriods.filter((_, i) => i !== idx);
+                                    setHoursPeriods(updated);
+                                    handleUpdatePeriods(updated, hoursUnderDemand);
+                                  }}
+                                  className="text-[10px] font-bold text-red-500 hover:text-red-750 hover:underline cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  Remover período
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">
+                                Dias de funcionamento:
+                              </label>
+                              <div className="flex flex-wrap gap-1.5">
+                                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => {
+                                  const isSelected = period.days.includes(d);
+                                  return (
+                                    <button
+                                      key={d}
+                                      type="button"
+                                      disabled={hoursUnderDemand}
+                                      onClick={() => {
+                                        const updatedDays = isSelected
+                                          ? period.days.filter(item => item !== d)
+                                          : [...period.days, d];
+                                        const updated = hoursPeriods.map((p, i) => i === idx ? { ...p, days: updatedDays } : p);
+                                        setHoursPeriods(updated);
+                                        handleUpdatePeriods(updated, hoursUnderDemand);
+                                      }}
+                                      className={`w-9 h-9 flex items-center justify-center text-xs font-bold rounded-lg border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                                        isSelected
+                                          ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
+                                          : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                                      }`}
+                                    >
+                                      {d}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-3 pt-1">
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">De:</label>
+                                <select
+                                  disabled={hoursUnderDemand}
+                                  value={period.startTime}
+                                  onChange={(e) => {
+                                    const updated = hoursPeriods.map((p, i) => i === idx ? { ...p, startTime: e.target.value } : p);
+                                    setHoursPeriods(updated);
+                                    handleUpdatePeriods(updated, hoursUnderDemand);
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg p-2.5 font-mono focus:ring-1 focus:ring-brand-cyan focus:border-brand-cyan disabled:opacity-40"
+                                >
+                                  {['06:00', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Até:</label>
+                                <select
+                                  disabled={hoursUnderDemand}
+                                  value={period.endTime}
+                                  onChange={(e) => {
+                                    const updated = hoursPeriods.map((p, i) => i === idx ? { ...p, endTime: e.target.value } : p);
+                                    setHoursPeriods(updated);
+                                    handleUpdatePeriods(updated, hoursUnderDemand);
+                                  }}
+                                  className="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg p-2.5 font-mono focus:ring-1 focus:ring-brand-cyan focus:border-brand-cyan disabled:opacity-40"
+                                >
+                                  {['12:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '21:00', '22:00', '23:00'].map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1 select-none">
                         <button
                           type="button"
-                          onClick={() => setShowHoursBuilder(!showHoursBuilder)}
-                          className="text-[11px] font-bold text-brand-cyan hover:underline flex items-center gap-1 cursor-pointer"
+                          disabled={hoursUnderDemand}
+                          onClick={() => {
+                            const updated = [...hoursPeriods, { days: [], startTime: '08:00', endTime: '17:00' }];
+                            setHoursPeriods(updated);
+                            handleUpdatePeriods(updated, hoursUnderDemand);
+                          }}
+                          className="flex-1 py-2 border border-dashed border-slate-350 hover:border-brand-cyan text-brand-blue hover:text-brand-cyan text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          {showHoursBuilder ? '✕ Fechar Assistente' : '✨ Usar Assistente de Horários'}
+                          ➕ Acrescentar mais horários
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newVal = !hoursUnderDemand;
+                            setHoursUnderDemand(newVal);
+                            handleUpdatePeriods(hoursPeriods, newVal);
+                          }}
+                          className={`py-2 px-4 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
+                            hoursUnderDemand
+                              ? 'bg-brand-blue text-white border-brand-blue shadow-sm'
+                              : 'bg-white text-slate-650 border-slate-250 hover:bg-slate-50'
+                          }`}
+                        >
+                          🗓️ Sob demanda / Agendamento
                         </button>
                       </div>
 
-                      <InputField
-                        id="operatingHours"
-                        label="Horário de funcionamento ordinário (Resumo consolidado)"
-                        value={formData.operatingHours}
-                        onChange={(e) => setFormData(prev => ({ ...prev, operatingHours: e.target.value }))}
-                        exampleText="Segunda a sexta, das 09:00 às 17h"
-                        helpText={badgeForField('operatingHours') as any}
-                      />
-
-                      {/* Default Common Presets list */}
-                      <div className="space-y-2 select-none">
-                        <span className="text-[11px] font-semibold text-slate-500 block">Preencher rapidamente com perfis comuns:</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[
-                            { label: '🏢 Seg a Sex (08h às 17h)', val: 'Segunda a sexta, das 08:00 às 17:00' },
-                            { label: '🏫 Seg a Sex (08h às 12h / 13h às 17h)', val: 'Segunda a sexta, das 08:00 às 12:00 e das 13:00 às 17:00' },
-                            { label: '📅 Seg a Sáb (08h às 12h)', val: 'Segunda a sábado, das 08:00 às 12:00' },
-                            { label: '⏰ Sob Demanda / Agendamento', val: 'Atendimento sob agendamento prévio ou voltado a projetos' },
-                            { label: '🌌 Plantão / 24 Horas', val: 'Funcionamento ininterrupto (24h por dia, 7 dias por semana)' }
-                          ].map((perf, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              onClick={() => {
-                                setFormData(prev => ({ ...prev, operatingHours: perf.val }));
-                                // If the user clicked a preset, we sync the hours builder state as well for coherence
-                                if (perf.val.includes('08:00') && perf.val.includes('17:00')) {
-                                  setHoursStartTime('08:00');
-                                  setHoursEndTime('17:00');
-                                } else if (perf.val.includes('09:00') && perf.val.includes('18:00')) {
-                                  setHoursStartTime('09:00');
-                                  setHoursEndTime('18:00');
-                                }
-                              }}
-                              className={`text-[10px] font-medium py-1 px-2.5 rounded-lg border transition cursor-pointer ${
-                                formData.operatingHours === perf.val
-                                  ? 'bg-brand-cyan text-white border-brand-cyan font-bold shadow-sm'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                              }`}
-                            >
-                              {perf.label}
-                            </button>
-                          ))}
-                        </div>
+                      <div className="border-t border-slate-150 pt-3 space-y-2">
+                        <InputField
+                          id="operatingHours"
+                          label="Horário consolidado de funcionamento"
+                          value={formData.operatingHours}
+                          onChange={(e) => setFormData(prev => ({ ...prev, operatingHours: e.target.value }))}
+                          exampleText="Segunda a sexta, das 09:00 às 17h"
+                          helpText={badgeForField('operatingHours') as any}
+                        />
                       </div>
-
-                      {/* Interactive Time config panel */}
-                      {showHoursBuilder && (
-                        <div className="p-4 bg-white border border-slate-100 rounded-xl space-y-3.5 animate-in slide-in-from-top-2 duration-200">
-                          <span className="text-[11px] font-bold text-brand-blue uppercase tracking-normal block">✨ Assistente de Montagem Customizada</span>
-                          
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] font-semibold text-slate-500 block">1. Selecione os dias de funcionamento:</span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((d) => {
-                                const isActive = hoursSelectedDays.includes(d);
-                                return (
-                                  <button
-                                    key={d}
-                                    type="button"
-                                    onClick={() => {
-                                      const updated = isActive
-                                        ? hoursSelectedDays.filter(item => item !== d)
-                                        : [...hoursSelectedDays, d];
-                                      setHoursSelectedDays(updated);
-                                      handleApplyCustomHours(updated, hoursStartTime, hoursEndTime);
-                                    }}
-                                    className={`py-1 px-3 text-xs font-bold rounded-lg border transition cursor-pointer ${
-                                      isActive
-                                        ? 'bg-brand-blue text-white border-brand-blue'
-                                        : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                                    }`}
-                                  >
-                                    {d}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <div className="flex gap-2 mt-1 select-none">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
-                                  setHoursSelectedDays(updated);
-                                  handleApplyCustomHours(updated, hoursStartTime, hoursEndTime);
-                                }}
-                                className="text-[9px] text-gray-500 underline font-medium hover:text-brand-blue cursor-pointer"
-                              >
-                                Segunda a Sexta
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-                                  setHoursSelectedDays(updated);
-                                  handleApplyCustomHours(updated, hoursStartTime, hoursEndTime);
-                                }}
-                                className="text-[9px] text-gray-500 underline font-medium hover:text-brand-blue cursor-pointer"
-                              >
-                                Segunda a Sábado
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const updated = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-                                  setHoursSelectedDays(updated);
-                                  handleApplyCustomHours(updated, hoursStartTime, hoursEndTime);
-                                }}
-                                className="text-[9px] text-gray-500 underline font-medium hover:text-brand-blue cursor-pointer"
-                              >
-                                Todos os dias (Dom a Dom)
-                              </button>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 pb-1 border-t border-slate-100 pt-3">
-                            <div>
-                              <span className="text-[10px] font-semibold text-slate-500 block mb-1">2. Hora Inicial:</span>
-                              <select
-                                value={hoursStartTime}
-                                onChange={(e) => {
-                                  setHoursStartTime(e.target.value);
-                                  handleApplyCustomHours(hoursSelectedDays, e.target.value, hoursEndTime);
-                                }}
-                                className="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg p-2 font-mono"
-                              >
-                                {['06:00', '07:00', '07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'].map(t => (
-                                  <option key={t} value={t}>{t}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <span className="text-[10px] font-semibold text-slate-500 block mb-1">3. Hora Final:</span>
-                              <select
-                                value={hoursEndTime}
-                                onChange={(e) => {
-                                  setHoursEndTime(e.target.value);
-                                  handleApplyCustomHours(hoursSelectedDays, hoursStartTime, e.target.value);
-                                }}
-                                className="w-full bg-slate-50 border border-slate-200 text-xs rounded-lg p-2 font-mono"
-                              >
-                                {['12:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30', '20:00', '21:00', '22:00', '23:00'].map(t => (
-                                  <option key={t} value={t}>{t}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                          
-                          <div className="bg-blue-50/50 rounded-lg p-2 border border-blue-100 text-center select-none">
-                            <span className="text-[10px] font-bold text-slate-400 block uppercase">Pré-visualização do Horário Gerado:</span>
-                            <span className="text-xs font-extrabold text-brand-blue tracking-tight block mt-0.5">
-                              {hoursSelectedDays.length === 0 ? '(Selecione os dias)' : `${hoursSelectedDays.join(', ')} das ${hoursStartTime} às ${hoursEndTime}`}
-                            </span>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -2016,11 +2223,45 @@ export default function App() {
                         disabled
                       />
                       
-
+                      <div className="sm:col-span-3 border-t border-slate-100 pt-4 space-y-3">
+                        <label className="text-xs sm:text-sm font-bold text-brand-blue block">
+                          Cidades onde atua: *
+                          {isFieldRequired('citiesOfActivity', formData.formalizationStatus) && (!formData.citiesOfActivity || formData.citiesOfActivity.length === 0) && (
+                            <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+                              Pendente
+                            </span>
+                          )}
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {['Recife', 'Olinda', 'Jaboatão dos Guararapes', 'Paulista', 'Outra'].map((item) => {
+                            const isChecked = formData.citiesOfActivity?.includes(item);
+                            return (
+                              <label key={item} className="flex items-center gap-2 text-xs py-1.5 px-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition">
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked || false}
+                                  onChange={() => {
+                                    const list = [...(formData.citiesOfActivity || [])];
+                                    const updated = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
+                                    setFormData(prev => ({ ...prev, citiesOfActivity: updated }));
+                                  }}
+                                  className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                                />
+                                <span className="text-slate-700 font-semibold">{item}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
 
                       <div className="sm:col-span-3 space-y-3">
                         <label className="text-xs sm:text-sm font-bold text-brand-blue block">
                           Bairros do Recife onde atua: *
+                          {isFieldRequired('neighborhoodsOfActivity', formData.formalizationStatus) && (!formData.neighborhoodsOfActivity || formData.neighborhoodsOfActivity.length === 0) && (
+                            <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+                              Pendente
+                            </span>
+                          )}
                         </label>
                         <div className="flex gap-2">
                           <input
@@ -2041,30 +2282,129 @@ export default function App() {
                           )}
                         </div>
                         <div className="border border-slate-200/80 rounded-xl p-3 bg-white max-h-48 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2 shadow-inner">
-                          {LIST_OF_NEIGHBORHOODS.filter(n => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(neighborhoodSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))).map((item) => {
-                            const isChecked = formData.neighborhoodsOfActivity?.includes(item);
+                          {(() => {
+                            const searchClean = neighborhoodSearch.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                            const matches = LIST_OF_NEIGHBORHOODS.filter(n => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(searchClean));
+                            
+                            // Check if exact match exists in the default list or currently selected ones
+                            const hasExactMatchInDefaultList = LIST_OF_NEIGHBORHOODS.some(n => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === searchClean);
+                            
+                            // Compile the list to display: start with default matches, add any custom selected items that aren't in default list
+                            let displayList = [...matches];
+                            
+                            (formData.neighborhoodsOfActivity || []).forEach(selected => {
+                              if (!LIST_OF_NEIGHBORHOODS.includes(selected) && !displayList.includes(selected) && selected.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(searchClean)) {
+                                displayList.push(selected);
+                              }
+                            });
+
+                            const hasExactMatchAnywhere = displayList.some(n => n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === searchClean);
+
                             return (
-                              <label key={item} className="flex items-center gap-2 text-xs py-1 px-2 hover:bg-slate-50 rounded transition cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked || false}
-                                  onChange={() => {
-                                    const list = [...(formData.neighborhoodsOfActivity || [])];
-                                    const updated = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
-                                    setFormData(prev => ({ ...prev, neighborhoodsOfActivity: updated }));
-                                  }}
-                                  className="rounded border-slate-300 text-brand-blue w-4 h-4"
-                                />
-                                <span className="text-slate-650 font-medium">{item}</span>
-                              </label>
+                              <>
+                                {displayList.map((item) => {
+                                  const isChecked = formData.neighborhoodsOfActivity?.includes(item);
+                                  return (
+                                    <label key={item} className="flex items-center gap-2 text-xs py-1 px-2 hover:bg-slate-50 rounded transition cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked || false}
+                                        onChange={() => {
+                                          const list = [...(formData.neighborhoodsOfActivity || [])];
+                                          const updated = list.includes(item) ? list.filter(i => i !== item) : [...list, item];
+                                          setFormData(prev => ({ ...prev, neighborhoodsOfActivity: updated }));
+                                        }}
+                                        className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                                      />
+                                      <span className="text-slate-650 font-medium">{item}</span>
+                                    </label>
+                                  );
+                                })}
+                                
+                                {neighborhoodSearch.trim() !== '' && !hasExactMatchAnywhere && (
+                                  <label className="flex items-center gap-2 text-xs py-1 px-2 hover:bg-slate-50 rounded transition cursor-pointer border-t border-slate-100 sm:col-span-2 mt-1 pt-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={formData.neighborhoodsOfActivity?.includes(neighborhoodSearch.trim()) || false}
+                                      onChange={() => {
+                                        const customValue = neighborhoodSearch.trim();
+                                        const list = [...(formData.neighborhoodsOfActivity || [])];
+                                        const updated = list.includes(customValue) ? list.filter(i => i !== customValue) : [...list, customValue];
+                                        setFormData(prev => ({ ...prev, neighborhoodsOfActivity: updated }));
+                                      }}
+                                      className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                                    />
+                                    <span className="text-brand-blue font-bold italic">Adicionar "{neighborhoodSearch.trim()}" (Outro)</span>
+                                  </label>
+                                )}
+                              </>
                             );
-                          })}
+                          })()}
                         </div>
                         <span className="text-[10px] text-slate-400 block italic">
                           Selecionados ({formData.neighborhoodsOfActivity?.length || 0}): {formData.neighborhoodsOfActivity?.join(', ') || 'Nenhum bairro selecionado'}
                         </span>
                       </div>
                     </div>
+                    {/* CREDENCIAIS DE ACESSO - APENAS PARA NOVOS CADASTROS */}
+                    {isNewRegistration && (
+                      <div className="sm:col-span-2 p-5 bg-gradient-to-r from-sky-50 to-blue-50/30 border border-sky-100 rounded-3xl space-y-4 shadow-sm animate-in fade-in duration-200 mt-4 select-none">
+                        <div className="flex items-center gap-2 border-b border-sky-100/70 pb-2.5">
+                          <Lock className="w-5 h-5 text-brand-cyan" />
+                          <div>
+                            <span className="text-xs font-black text-brand-blue uppercase tracking-wider block">🔑 Criar Credenciais de Acesso</span>
+                            <span className="text-[10px] text-slate-500 font-medium">Cadastre um e-mail e senha para salvar seu rascunho com segurança e voltar quando quiser.</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <InputField
+                            id="newRegEmail"
+                            label="E-mail de Login / Acesso"
+                            required
+                            value={newRegEmail}
+                            onChange={(e) => setNewRegEmail(e.target.value)}
+                            placeholder="Ex: contato@suaorganizacao.org"
+                            exampleText="Este e-mail será usado como seu login de acesso único."
+                          />
+
+                          <div className="space-y-1">
+                            <label className="block text-[10px] font-black text-brand-blue uppercase tracking-wider">
+                              Senha de Acesso *
+                            </label>
+                            <div className="relative">
+                              <input
+                                type={showNewRegPassword ? 'text' : 'password'}
+                                placeholder="Mínimo 6 caracteres"
+                                value={newRegPassword}
+                                onChange={(e) => setNewRegPassword(e.target.value)}
+                                className="w-full pl-3 pr-10 py-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan transition font-semibold text-slate-700 bg-white"
+                                required
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowNewRegPassword(!showNewRegPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-655 cursor-pointer p-1 bg-transparent border-0"
+                              >
+                                {showNewRegPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <InputField
+                              id="newRegPasswordConfirm"
+                              label="Confirmar Senha"
+                              required
+                              type={showNewRegPassword ? 'text' : 'password'}
+                              value={newRegPasswordConfirm}
+                              onChange={(e) => setNewRegPasswordConfirm(e.target.value)}
+                              placeholder="Repita a senha informada acima"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -2105,9 +2445,10 @@ export default function App() {
                     <InputField
                       id="fillerRole"
                       label="Função de quem preenche"
-                      value={formData.fillerRole}
+                      required
+                      value={formData.fillerRole || ''}
                       onChange={(e) => setFormData(prev => ({ ...prev, fillerRole: e.target.value }))}
-                      exampleText="Coordenador de Projetos"
+                      placeholder="Exemplo: Gerente de Projetos"
                       helpText={badgeForField('fillerRole') as any}
                     />
 
@@ -2270,15 +2611,67 @@ export default function App() {
 
                   <div className="grid grid-cols-1 gap-5">
                     
-                    <SelectField
-                      id="mainCause"
-                      label="Causa prioritária / principal de atuação"
-                      required
-                      options={LIST_OF_CAUSES.map(c => ({ value: c, label: c }))}
-                      value={formData.mainCause}
-                      onChange={(e) => setFormData(prev => ({ ...prev, mainCause: e.target.value }))}
-                      helpText={badgeForField('mainCause') as any}
-                    />
+                    <div className="space-y-3 border-b border-slate-100 pb-5">
+                      <label className="text-xs sm:text-sm font-bold text-brand-blue flex items-center gap-1.5 flex-wrap">
+                        <span>Causa prioritária / principal de atuação</span>
+                        <span className="text-color-error" aria-hidden="true">*</span>
+                        {isFieldRequired('mainCause', formData.formalizationStatus) && !formData.mainCause && (
+                          <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-0.5 inline-block">
+                            Pendente
+                          </span>
+                        )}
+                        {badgeForField('mainCause') as any}
+                      </label>
+                      <p className="text-[11px] text-slate-500 leading-normal">
+                        Selecione uma ou mais causas principais nas quais a organização atua diretamente (selecione pelo menos uma).
+                      </p>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {LIST_OF_CAUSES.map((item) => {
+                          const selectedList = formData.mainCause
+                            ? formData.mainCause.split(', ').map(x => x.trim())
+                            : [];
+                          const isChecked = selectedList.includes(item);
+                          return (
+                            <label 
+                              key={item} 
+                              className={`flex items-center gap-2.5 text-xs py-3 px-3.5 rounded-xl border transition-all cursor-pointer select-none ${
+                                isChecked
+                                  ? 'bg-brand-blue/5 border-brand-blue/35 text-brand-blue font-bold shadow-xs'
+                                  : 'bg-white border-slate-200 text-slate-650 hover:bg-slate-50 hover:border-slate-300'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  let updatedList: string[];
+                                  if (isChecked) {
+                                    updatedList = selectedList.filter(x => x !== item);
+                                  } else {
+                                    updatedList = [...selectedList, item];
+                                  }
+                                  setFormData(prev => ({ 
+                                    ...prev, 
+                                    mainCause: updatedList.join(', ') 
+                                  }));
+                                }}
+                                className="rounded border-slate-350 text-brand-cyan focus:ring-brand-cyan w-4 h-4 shrink-0 cursor-pointer"
+                              />
+                              <span>{item}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      
+                      {formData.mainCause && (
+                        <div className="bg-emerald-50/50 border border-emerald-100/30 p-3 rounded-xl mt-2 flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-emerald-700 leading-relaxed">
+                            Causas principais selecionadas ({formData.mainCause.split(', ').length}): <strong className="underline">{formData.mainCause}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
 
                     {formData.mainCause === 'Outra' && (
                       <InputField
@@ -2392,7 +2785,14 @@ export default function App() {
 
                   <div className="space-y-4">
                     {/* Audiences Checklist */}
-                    <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">Públicos atendidos pelas atividades:</span>
+                    <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">
+                      Públicos atendidos pelas atividades: *
+                      {isFieldRequired('audiences', formData.formalizationStatus) && (!formData.audiences || formData.audiences.length === 0 || formData.audiences.includes('Outro')) && (
+                        <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+                          Pendente
+                        </span>
+                      )}
+                    </span>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {['Todos / Público em geral', 'Crianças', 'Adolescentes', 'Jovens', 'Mulheres', 'Famílias', 'Pessoas idosas', 'Pessoas com deficiência', 'Pessoas em situação de rua', 'População negra', 'População LGBTQIA+'].map((item) => {
                         const isChecked = formData.audiences?.includes(item);
@@ -2412,7 +2812,77 @@ export default function App() {
                           </label>
                         );
                       })}
+                      
+                      {/* Checkbox Outro */}
+                      {(() => {
+                        const defaultAudiences = ['Crianças', 'Adolescentes', 'Jovens', 'Mulheres', 'Famílias', 'Pessoas idosas', 'Pessoas com deficiência', 'Pessoas em situação de rua', 'População negra', 'População LGBTQIA+'];
+                        const hasOther = formData.audiences?.some(aud => !defaultAudiences.includes(aud)) || false;
+                        return (
+                          <label className="flex items-center gap-2 text-xs py-1.5 px-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition">
+                            <input
+                              type="checkbox"
+                              checked={hasOther}
+                              onChange={() => {
+                                const list = [...(formData.audiences || [])];
+                                let updated: string[];
+                                if (hasOther) {
+                                  updated = list.filter(i => defaultAudiences.includes(i));
+                                } else {
+                                  updated = [...list, 'Outro'];
+                                }
+                                setFormData(prev => ({ ...prev, audiences: updated }));
+                              }}
+                              className="rounded border-slate-300 text-brand-blue w-4 h-4"
+                            />
+                            <span className="text-slate-700 font-semibold">Outro</span>
+                          </label>
+                        );
+                      })()}
                     </div>
+
+                    {/* Campo de digitação reativa para Outro público */}
+                    {(() => {
+                      const defaultAudiences = ['Crianças', 'Adolescentes', 'Jovens', 'Mulheres', 'Famílias', 'Pessoas idosas', 'Pessoas com deficiência', 'Pessoas em situação de rua', 'População negra', 'População LGBTQIA+'];
+                      const otherValue = formData.audiences?.find(aud => !defaultAudiences.includes(aud)) || '';
+                      const hasOther = otherValue !== '';
+                      const displayOtherValue = otherValue === 'Outro' ? '' : otherValue;
+                      
+                      if (!hasOther) return null;
+                      
+                      return (
+                        <div className="mt-3.5 max-w-md animate-fadeIn bg-slate-50/50 p-3.5 rounded-xl border border-slate-100">
+                          <label htmlFor="otherAudienceInput" className="text-[11px] font-bold text-slate-500 block mb-1.5 uppercase tracking-wide">
+                            Especifique o outro público atendido: *
+                            {!displayOtherValue && (
+                              <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+                                Pendente
+                              </span>
+                            )}
+                          </label>
+                          <input
+                            id="otherAudienceInput"
+                            type="text"
+                            value={displayOtherValue}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const list = [...(formData.audiences || [])];
+                              const otherIndex = list.findIndex(i => !defaultAudiences.includes(i));
+                              const newOtherValue = val.trim() === '' ? 'Outro' : val;
+                              
+                              if (otherIndex !== -1) {
+                                list[otherIndex] = newOtherValue;
+                              } else {
+                                list.push(newOtherValue);
+                              }
+                              setFormData(prev => ({ ...prev, audiences: list }));
+                            }}
+                            placeholder="Ex: Pessoas refugiadas, gestantes..."
+                            className="w-full text-xs p-3 rounded-xl border border-slate-200/80 bg-white focus:outline-none focus:ring-2 focus:ring-brand-cyan/20 focus:border-brand-cyan transition shadow-sm"
+                            required
+                          />
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-5">
@@ -2915,9 +3385,8 @@ export default function App() {
                       
                       <div className="flex flex-wrap gap-2">
                         {[
-                          { val: 'yes', label: 'Sim, já recebemos voluntariado' },
-                          { val: 'interest', label: 'Não recebemos, mas temos interesse' },
-                          { val: 'no', label: 'Não recebemos voluntários no momento' }
+                          { val: 'yes', label: 'Sim, recebemos' },
+                          { val: 'no', label: 'Não, não recebemos' }
                         ].map((opt) => (
                           <button
                             key={opt.val}
@@ -3209,14 +3678,9 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Steps overview */}
-              <div className="p-4 bg-blue-50/50 border border-brand-cyan/10 rounded-xl space-y-2 select-none">
-                <span className="text-xs font-bold text-brand-blue uppercase tracking-wider block">Quais as próximas etapas?</span>
-                <ul className="space-y-1.5 pl-1.5 text-xs text-slate-600 list-decimal list-inside leading-relaxed">
-                  <li>Nossa equipe técnica audita as informações e consistência dos ODS;</li>
-                  <li>As oportunidades ou necessidades listadas são disponibilizadas para empresas patrocinadoras;</li>
-                  <li>Certificação final e liberação de dados no catálogo de parcerias do Bora Impactar.</li>
-                </ul>
+              {/* Success message */}
+              <div className="p-4 bg-blue-50/50 border border-brand-cyan/10 rounded-xl text-center select-none">
+                <span className="text-sm font-bold text-brand-blue block">Sua resposta foi registrada com sucesso!</span>
               </div>
             </div>
 
@@ -3242,6 +3706,15 @@ export default function App() {
               </button>
             </div>
           </div>
+        )}
+
+        {/* VIEW 6: ADMIN PANEL */}
+        {currentView === 'admin' && (
+          <AdminPanel 
+            onBack={handleLeaveAdmin}
+            organizations={organizations}
+            onRefreshList={handleRefreshOrganizations}
+          />
         )}
 
 

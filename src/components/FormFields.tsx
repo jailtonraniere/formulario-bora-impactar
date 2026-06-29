@@ -92,12 +92,19 @@ export const InputField: React.FC<InputFieldProps> = ({
   fillingTip,
   ...props
 }) => {
+  const isPending = required && (!props.value || String(props.value).trim() === '');
+
   return (
     <div className={`flex flex-col w-full h-full ${className}`}>
       <div>
         <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
           <span>{label}</span>
           {required && <span className="text-color-error" aria-hidden="true">*</span>}
+          {isPending && (
+            <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+              Pendente
+            </span>
+          )}
           {fillingTip && <FillingTipTooltip tip={fillingTip} />}
         </label>
         
@@ -164,6 +171,7 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
   ...props
 }) => {
   const charCount = typeof value === 'string' ? value.length : 0;
+  const isPending = required && (!value || String(value).trim() === '');
 
   return (
     <div className={`flex flex-col w-full h-full ${className}`}>
@@ -172,6 +180,11 @@ export const TextAreaField: React.FC<TextAreaFieldProps> = ({
           <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue inline-flex items-center flex-wrap gap-1">
             <span>{label}</span>
             {required && <span className="text-color-error" aria-hidden="true">*</span>}
+            {isPending && (
+              <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+                Pendente
+              </span>
+            )}
             {fillingTip && <FillingTipTooltip tip={fillingTip} />}
           </label>
           
@@ -249,12 +262,19 @@ export const SelectField: React.FC<SelectFieldProps> = ({
   fillingTip,
   ...props
 }) => {
+  const isPending = required && (!value || String(value).trim() === '');
+
   return (
     <div className={`flex flex-col w-full h-full ${className}`}>
       <div>
         <label htmlFor={id} className="text-xs sm:text-sm font-bold text-brand-blue mb-1.5 inline-flex items-center flex-wrap gap-1">
           <span>{label}</span>
           {required && <span className="text-color-error" aria-hidden="true">*</span>}
+          {isPending && (
+            <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+              Pendente
+            </span>
+          )}
           {fillingTip && <FillingTipTooltip tip={fillingTip} />}
         </label>
 
@@ -382,17 +402,21 @@ export const ProgressBar: React.FC<{
             const isActive = stepNum === currentStep;
             
             return (
-              <div key={index} className="flex flex-col items-center relative z-10">
+              <button
+                key={index}
+                type="button"
+                onClick={() => onStepClick?.(stepNum)}
+                className="flex flex-col items-center relative z-10 focus:outline-none cursor-pointer group/step"
+                title={`Ir para etapa ${stepNum}: ${label}`}
+              >
                 <div 
-                  onClick={() => onStepClick && onStepClick(stepNum)}
-                  className={`w-8.5 h-8.5 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 ${onStepClick ? 'cursor-pointer' : ''} ${
+                  className={`w-8.5 h-8.5 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 group-hover/step:scale-105 ${
                     isCompleted 
                       ? 'bg-emerald-500 text-white border-2 border-emerald-500 shadow-md shadow-emerald-500/10 hover:bg-emerald-600' 
                       : isActive 
                         ? 'bg-white text-brand-cyan border-2 border-brand-cyan shadow-lg shadow-sky-500/15 ring-4 ring-sky-500/10 scale-110 font-extrabold' 
-                        : 'bg-white text-slate-400 border-2 border-slate-200 hover:border-slate-350 hover:bg-slate-50'
+                        : 'bg-white text-slate-400 border-2 border-slate-200 group-hover/step:border-brand-cyan/60 group-hover/step:text-brand-cyan'
                   }`}
-                  title={`${stepNum}. ${label}`}
                 >
                   {isCompleted ? (
                     <svg className="w-4 h-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -404,7 +428,7 @@ export const ProgressBar: React.FC<{
                 </div>
                 {/* Tiny step label */}
                 <span 
-                  className={`text-[9px] font-bold mt-2 select-none transition-colors duration-200 whitespace-nowrap absolute top-full ${
+                  className={`text-[9px] font-bold mt-2 select-none transition-colors duration-200 whitespace-nowrap absolute top-full group-hover/step:text-brand-cyan ${
                     isActive 
                       ? 'text-brand-cyan font-black' 
                       : isCompleted 
@@ -414,7 +438,7 @@ export const ProgressBar: React.FC<{
                 >
                   {label}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -485,12 +509,19 @@ export const YesNoField: React.FC<YesNoFieldProps> = ({
   exampleText,
   error,
 }) => {
+  const isPending = required && (value === undefined || value === null || value === '');
+
   return (
     <div className="flex flex-col w-full h-full font-sans">
       <div>
         <label className="text-xs sm:text-sm font-bold text-brand-blue mb-1 inline-flex items-center flex-wrap gap-1">
           <span>{label}</span>
           {required && <span className="text-color-error" aria-hidden="true">*</span>}
+          {isPending && (
+            <span className="text-[9px] bg-amber-50 text-amber-700 font-extrabold px-1.5 py-0.5 rounded border border-amber-200 uppercase select-none leading-none ml-1.5 inline-block">
+              Pendente
+            </span>
+          )}
         </label>
         
         {helpText && <p className="text-xs text-slate-500 mb-2.5 font-medium">{helpText}</p>}

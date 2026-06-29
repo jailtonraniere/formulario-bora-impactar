@@ -213,7 +213,46 @@ export const apiService = {
   async getDraft(token: string): Promise<ApiResponse<{ organizacao_id: string; etapa_atual: number; percentual_conclusao: number; dados: OrganizationData }>> {
     if (!isApiConfigured()) {
       // Local simulation
-      const draftRaw = localStorage.getItem(`bora_draft_${token}`);
+      let orgId = '';
+      if (token.startsWith('mock_token_')) {
+        const parts = token.split('_');
+        orgId = parts[2]; // mock_token_ORGID_timestamp -> ORGID
+      }
+
+      let draftRaw = localStorage.getItem(`bora_draft_${token}`);
+
+      // If draft not found by token, look up any saved draft for this orgId
+      if (!draftRaw && orgId) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('bora_draft_')) {
+            try {
+              const draftObj = JSON.parse(localStorage.getItem(key) || '');
+              if (draftObj.organizacao_id === orgId) {
+                draftRaw = localStorage.getItem(key);
+                break;
+              }
+            } catch {}
+          }
+        }
+      }
+
+      // If draft still doesn't exist, create it from the existing organization data
+      if (!draftRaw && orgId) {
+        const orgs = storageService.getOrganizations();
+        const org = orgs.find(o => o.id === orgId);
+        if (org) {
+          const newDraft = {
+            organizacao_id: orgId,
+            etapa_atual: 1,
+            percentual_conclusao: 0,
+            dados: org,
+          };
+          localStorage.setItem(`bora_draft_${token}`, JSON.stringify(newDraft));
+          return { success: true, data: newDraft, error: null };
+        }
+      }
+
       if (!draftRaw) {
         return { success: false, data: null, error: { code: 'UNAUTHORIZED', message: 'Token de acesso inválido ou expirado.' } };
       }
@@ -229,8 +268,13 @@ export const apiService = {
   async saveDraft(token: string, step: number, percentage: number, data: OrganizationData): Promise<ApiResponse<{ message: string }>> {
     if (!isApiConfigured()) {
       // Local simulation
+      let orgId = data.id || 'BI-TEMP';
+      if (token.startsWith('mock_token_')) {
+        const parts = token.split('_');
+        orgId = parts[2] || orgId;
+      }
       const draftObj = {
-        organizacao_id: data.id || 'BI-TEMP',
+        organizacao_id: orgId,
         etapa_atual: step,
         percentual_conclusao: percentage,
         dados: data,
@@ -283,7 +327,7 @@ export const apiService = {
       const protocol = storageService.generateProtocol();
       const submittedOrg: OrganizationData = {
         ...data,
-        id: `BI-TEMP-${Math.floor(1000 + Math.random() * 9000)}`,
+        id: data.id || `BI-TEMP-${Math.floor(1000 + Math.random() * 9000)}`,
         status: 'Enviado',
         lastUpdated: new Date().toLocaleDateString('pt-BR'),
       };
@@ -327,5 +371,137 @@ export const apiService = {
       return { success: true, data: { message: 'Audit logged in console.' }, error: null };
     }
     return callApi<{ message: string }>('registerAudit', { organizacao_id: organizacaoId, acao, detalhes });
+  },
+
+  /**
+   * Performs login.
+   */
+  async login(loginIdentifier: string, passwordPlain: string): Promise<ApiResponse<{ token: string; organization: OrganizationData }>> {
+    if (!isApiConfigured()) {
+      const res = storageService.login(loginIdentifier, passwordPlain);
+      if (res.success && res.token && res.organization) {
+        return {
+          success: true,
+          data: { token: res.token, organization: res.organization },
+          error: null
+        };
+      }
+      return {
+        success: false,
+        data: null,
+        error: { code: 'AUTH_ERROR', message: res.error || 'Erro de autenticação.' }
+      };
+    }
+    return callApi<{ token: string; organization: OrganizationData }>('login', { login: loginIdentifier, senha: passwordPlain });
+  },
+
+  /**
+   * Requests a verification code for first access.
+   */
+  async requestVerificationCode(orgId: string): Promise<ApiResponse<{ emailMasked: string }>> {
+    if (!isApiConfigured()) {
+      const res = storageService.requestVerificationCode(orgId);
+      if (res.success && res.emailMasked) {
+        return {
+          success: true,
+          data: { emailMasked: res.emailMasked },
+          error: null
+        };
+      }
+      return {
+        success: false,
+        data: null,
+        error: { code: 'VERIFICATION_ERROR', message: res.error || 'Erro ao enviar código.' }
+      };
+    }
+    return callApi<{ emailMasked: string }>('requestVerificationCode', { organizacao_id: orgId });
+  },
+
+  /**
+   * Registers/defines password after code verification.
+   */
+  async registerCredentials(orgId: string, login: string, passwordPlain: string, code: string): Promise<ApiResponse<{ message: string }>> {
+    if (!isApiConfigured()) {
+      const res = storageService.registerCredentials(orgId, login, passwordPlain, code);
+      if (res.success) {
+        return {
+          success: true,
+          data: { message: 'Senha cadastrada com sucesso!' },
+          error: null
+        };
+      }
+      return {
+        success: false,
+        data: null,
+        error: { code: 'REGISTRATION_ERROR', message: res.error || 'Erro ao cadastrar credenciais.' }
+      };
+    }
+    return callApi<{ message: string }>('registerCredentials', { organizacao_id: orgId, login, senha: passwordPlain, codigo: code });
+  },
+
+  /**
+   * Directly registers credentials for a new organization registration.
+   */
+  async registerNewCredentials(orgId: string, login: string, passwordPlain: string): Promise<ApiResponse<{ message: string }>> {
+    if (!isApiConfigured()) {
+      const res = storageService.registerNewCredentials(orgId, login, passwordPlain);
+      if (res.success) {
+        return {
+          success: true,
+          data: { message: 'Credenciais criadas com sucesso!' },
+          error: null
+        };
+      }
+      return {
+        success: false,
+        data: null,
+        error: { code: 'REGISTRATION_ERROR', message: res.error || 'Erro ao criar credenciais.' }
+      };
+    }
+    return callApi<{ message: string }>('registerNewCredentials', { organizacao_id: orgId, login, senha: passwordPlain });
+  },
+
+  /**
+   * Deletes credentials for an organization (admin action).
+   */
+  async deleteCredentials(orgId: string): Promise<ApiResponse<{ message: string }>> {
+    if (!isApiConfigured()) {
+      const res = storageService.deleteCredentials(orgId);
+      if (res.success) {
+        return {
+          success: true,
+          data: { message: 'Credencial removida com sucesso!' },
+          error: null
+        };
+      }
+      return {
+        success: false,
+        data: null,
+        error: { code: 'DELETE_ERROR', message: res.error || 'Erro ao remover credencial.' }
+      };
+    }
+    return callApi<{ message: string }>('deleteCredentials', { organizacao_id: orgId });
+  },
+
+  /**
+   * Updates credential password for an organization (admin action).
+   */
+  async updateCredentialPassword(orgId: string, newPassword: string): Promise<ApiResponse<{ message: string }>> {
+    if (!isApiConfigured()) {
+      const res = storageService.updateCredentialPassword(orgId, newPassword);
+      if (res.success) {
+        return {
+          success: true,
+          data: { message: 'Senha atualizada com sucesso!' },
+          error: null
+        };
+      }
+      return {
+        success: false,
+        data: null,
+        error: { code: 'UPDATE_ERROR', message: res.error || 'Erro ao atualizar senha.' }
+      };
+    }
+    return callApi<{ message: string }>('updateCredentialPassword', { organizacao_id: orgId, nova_senha: newPassword });
   }
 };

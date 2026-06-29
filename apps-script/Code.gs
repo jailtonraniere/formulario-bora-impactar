@@ -83,6 +83,14 @@ function doPost(e) {
     }
     
     switch (action) {
+      case "login":
+        return handleLogin(payload.login, payload.senha);
+      case "requestVerificationCode":
+        return handleRequestVerificationCode(payload.organizacao_id);
+      case "registerCredentials":
+        return handleRegisterCredentials(payload.organizacao_id, payload.login, payload.senha, payload.codigo);
+      case "registerNewCredentials":
+        return handleRegisterNewCredentials(payload.organizacao_id, payload.login, payload.senha);
       case "healthCheck":
         return createResponse(true, { status: "OK" });
       case "getLists":
@@ -686,4 +694,234 @@ function maskEmail(email) {
     return name + "***@" + domain;
   }
   return name.substring(0, 2) + "*****" + name.substring(name.length - 1) + "@" + domain;
+}
+
+/**
+ * Helper to get or create the CREDENCIAIS sheet.
+ */
+function getOrCreateCredentialsSheet() {
+  var ss = getSpreadsheet();
+  var sheet = ss.getSheetByName("CREDENCIAIS");
+  if (!sheet) {
+    sheet = ss.insertSheet("CREDENCIAIS");
+    // Row 4 contains headers
+    sheet.getRange(1, 1).setValue("Tabela de Credenciais de Acesso - Bora Impactar");
+    sheet.getRange(4, 1, 1, 3).setValues([["organizacao_id", "login", "senha_hash"]]);
+  }
+  return sheet;
+}
+
+/**
+ * Handle Login endpoint.
+ */
+function handleLogin(loginIdentifier, passwordPlain) {
+  if (!loginIdentifier || !passwordPlain) {
+    return createResponse(false, null, "BAD_REQUEST", "Login e senha são obrigatórios.");
+  }
+  
+  var cleanInput = loginIdentifier.replace(/\D/g, "").trim();
+  var inputLower = loginIdentifier.toLowerCase().trim();
+  
+  // 1. Check in CREDENCIAIS sheet
+  getOrCreateCredentialsSheet(); // Ensure exists
+  var credentials = getSheetRows("CREDENCIAIS");
+  var matchedCred = credentials.find(function(c) {
+    return c.login === inputLower || (cleanInput && c.login === cleanInput);
+  });
+  
+  var orgId = null;
+  var isPasswordValid = false;
+  
+  if (matchedCred) {
+    orgId = matchedCred.organizacao_id;
+    isPasswordValid = (matchedCred.senha_hash === passwordPlain);
+  } else {
+    // 2. Default password fallback (recife123) for existing organizations
+    var orgs = getSheetRows("ORGANIZACOES");
+    var matchedOrg = orgs.find(function(o) {
+      var cleanOrgCnpj = (o.cnpj || "").replace(/\D/g, "");
+      return (cleanInput && cleanOrgCnpj === cleanInput);
+    });
+    
+    // If not found by CNPJ, try to find in CONTATOS by email
+    if (!matchedOrg) {
+      var contacts = getSheetRows("CONTATOS");
+      var matchedContact = contacts.find(function(c) {
+        return c.email && c.email.toLowerCase().trim() === inputLower;
+      });
+      if (matchedContact) {
+        matchedOrg = orgs.find(function(o) { return o.organizacao_id === matchedContact.organizacao_id; });
+      }
+    }
+    
+    if (matchedOrg) {
+      orgId = matchedOrg.organizacao_id;
+      if (passwordPlain === "recife123") {
+        isPasswordValid = true;
+        // Auto-persist in CREDENCIAIS
+        var newCred = {
+          organizacao_id: orgId,
+          login: inputLower || orgId,
+          senha_hash: "recife123"
+        };
+        appendRowToSheet("CREDENCIAIS", newCred);
+      }
+    }
+  }
+  
+  if (!orgId || !isPasswordValid) {
+    return createResponse(false, null, "UNAUTHORIZED", "Login ou senha inválidos.");
+  }
+  
+  // Login successful -> Generate session token
+  var sessionToken = "sess_" + generateRandomString(32);
+  var rascunhos = getSheetRows("RASCUNHOS");
+  var existingDraft = rascunhos.find(function(r) { return r.organizacao_id === orgId; });
+  
+  var orgs = getSheetRows("ORGANIZACOES");
+  var matchedOrg = orgs.find(function(o) { return o.organizacao_id === orgId; });
+  var fullData = matchedOrg ? getMergedOrganizationData(orgId, matchedOrg) : { id: orgId };
+  
+  var draftRow = {
+    organizacao_id: orgId,
+    codigo_acesso: sessionToken,
+    email: fullData.email || inputLower,
+    etapa_atual: existingDraft ? existingDraft.etapa_atual : 1,
+    percentual_conclusao: existingDraft ? existingDraft.percentual_conclusao : 0,
+    dados_json: existingDraft ? existingDraft.dados_json : JSON.stringify(fullData),
+    data_ultimo_salvamento: new Date().toLocaleDateString("pt-BR"),
+    status: "Rascunho"
+  };
+  
+  if (existingDraft) {
+    draftRow.rascunho_id = existingDraft.rascunho_id;
+    draftRow.data_criacao = existingDraft.data_criacao;
+    updateRowInSheet("RASCUNHOS", existingDraft._rowNum, draftRow);
+  } else {
+    draftRow.rascunho_id = "ras_" + generateRandomString(12);
+    draftRow.data_criacao = new Date().toLocaleDateString("pt-BR");
+    appendRowToSheet("RASCUNHOS", draftRow);
+  }
+  
+  writeAuditLog(orgId, "LOGIN_SUCESSO", "Login realizado com sucesso.");
+  
+  return createResponse(true, {
+    token: sessionToken,
+    organization: fullData
+  });
+}
+
+/**
+ * Handle Request Verification Code endpoint.
+ */
+function handleRequestVerificationCode(orgId) {
+  if (!orgId) {
+    return createResponse(false, null, "BAD_REQUEST", "Organization ID is required.");
+  }
+  
+  var orgs = getSheetRows("ORGANIZACOES");
+  var matchedOrg = orgs.find(function(o) { return o.organizacao_id === orgId; });
+  if (!matchedOrg) {
+    return createResponse(false, null, "NOT_FOUND", "Organização não encontrada.");
+  }
+  
+  var contacts = getSheetRows("CONTATOS");
+  var matchedContact = contacts.find(function(c) { return c.organizacao_id === orgId; });
+  var email = matchedContact ? matchedContact.email : "";
+  
+  if (!email || email.trim() === "") {
+    return createResponse(false, null, "NO_EMAIL_CONFIGURED", "Esta organização não possui e-mail de contato cadastrado.");
+  }
+  
+  var code = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // Store code in Cache
+  var cache = CacheService.getScriptCache();
+  cache.put("verify_code_" + orgId, code, 900); // 15 mins
+  
+  // Dispatch email
+  try {
+    var emailBody = "Olá,\n\n" +
+                    "Para cadastrar sua senha de acesso ao formulário Bora Impactar, use o código de verificação abaixo:\n\n" +
+                    "Código: " + code + "\n\n" +
+                    "Este código expira em 15 minutos.\n\n" +
+                    "Atenciosamente,\nEquipe Bora Impactar - Prefeitura do Recife";
+                    
+    MailApp.sendEmail(email, "Código de Verificação - Formulário Bora Impactar", emailBody, {
+      name: "Bora Impactar"
+    });
+  } catch (err) {
+    Logger.log("Failed to send verification email to: " + email + ". Error: " + err.toString());
+  }
+  
+  return createResponse(true, {
+    emailMasked: maskEmail(email)
+  });
+}
+
+/**
+ * Handle Register Credentials endpoint.
+ */
+function handleRegisterCredentials(orgId, login, passwordPlain, code) {
+  if (!orgId || !login || !passwordPlain || !code) {
+    return createResponse(false, null, "BAD_REQUEST", "Todos os campos são obrigatórios.");
+  }
+  
+  var cache = CacheService.getScriptCache();
+  var storedCode = cache.get("verify_code_" + orgId);
+  
+  if (!storedCode || storedCode !== code) {
+    return createResponse(false, null, "INVALID_CODE", "Código de verificação inválido ou expirado.");
+  }
+  
+  cache.remove("verify_code_" + orgId);
+  
+  getOrCreateCredentialsSheet();
+  var credentials = getSheetRows("CREDENCIAIS");
+  var matchedCred = credentials.find(function(c) { return c.organizacao_id === orgId; });
+  
+  var credentialObj = {
+    organizacao_id: orgId,
+    login: login.toLowerCase().trim(),
+    senha_hash: passwordPlain
+  };
+  
+  if (matchedCred) {
+    updateRowInSheet("CREDENCIAIS", matchedCred._rowNum, credentialObj);
+  } else {
+    appendRowToSheet("CREDENCIAIS", credentialObj);
+  }
+  
+  writeAuditLog(orgId, "CADASTRAR_SENHA", "Senha cadastrada após validação do código de verificação.");
+  
+  return createResponse(true, { message: "Senha cadastrada com sucesso." });
+}
+
+/**
+ * Handle Register New Credentials (for direct new orgs).
+ */
+function handleRegisterNewCredentials(orgId, login, passwordPlain) {
+  if (!orgId || !login || !passwordPlain) {
+    return createResponse(false, null, "BAD_REQUEST", "Todos os campos são obrigatórios.");
+  }
+  
+  getOrCreateCredentialsSheet();
+  var credentials = getSheetRows("CREDENCIAIS");
+  var matchedCred = credentials.find(function(c) { return c.organizacao_id === orgId; });
+  
+  var credentialObj = {
+    organizacao_id: orgId,
+    login: login.toLowerCase().trim(),
+    senha_hash: passwordPlain
+  };
+  
+  if (matchedCred) {
+    updateRowInSheet("CREDENCIAIS", matchedCred._rowNum, credentialObj);
+  } else {
+    appendRowToSheet("CREDENCIAIS", credentialObj);
+  }
+  
+  writeAuditLog(orgId, "CADASTRAR_SENHA_NOVA_ORG", "Senha cadastrada diretamente para nova organização.");
+  
+  return createResponse(true, { message: "Credenciais criadas com sucesso." });
 }

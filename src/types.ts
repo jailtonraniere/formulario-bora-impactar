@@ -10,6 +10,7 @@ export type FormStatus =
   | 'Ajustes solicitados'
   | 'Reenviado'
   | 'Aprovado'
+  | 'Rejeitado'
   | 'Publicado'
   | 'Temporariamente oculto'
   | 'Arquivado';

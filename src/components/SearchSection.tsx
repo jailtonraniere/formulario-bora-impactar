@@ -11,6 +11,7 @@ interface SearchSectionProps {
   onSelectOrg: (org: any) => void;
   onNewRegister: () => void;
   onHelpNoCnpj: () => void;
+  onGoToLogin: () => void;
 }
 
 export const SearchSection: React.FC<SearchSectionProps> = ({
@@ -18,6 +19,7 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
   onSelectOrg,
   onNewRegister,
   onHelpNoCnpj,
+  onGoToLogin,
 }) => {
   const [flow, setFlow] = useState<'landing' | 'search'>('landing');
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,7 +93,7 @@ export const SearchSection: React.FC<SearchSectionProps> = ({
         <div className="custom-card p-6 sm:p-8 max-w-2xl mx-auto bg-white/80 backdrop-blur-md shadow-lg border border-slate-200/50">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
-              onClick={() => setFlow('search')}
+              onClick={onGoToLogin}
               className="w-full py-3.5 px-6 bg-brand-blue hover:bg-brand-blue-hover text-white text-xs font-bold rounded-2xl transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-brand-blue/15"
             >
               <span>Atualizar cadastro existente</span>
